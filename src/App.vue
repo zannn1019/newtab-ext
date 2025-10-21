@@ -1,5 +1,8 @@
 <template>
     <div id="kinesis-app" :class="['app-container', currentView]">
+        <!-- Custom Background Layer -->
+        <div class="custom-background" ref="customBackgroundRef"></div>
+
         <!-- Page Loader -->
         <PageLoader @loaded="onPageLoaded" />
 
@@ -57,6 +60,7 @@ const isNotesActive = ref(false);
 
 // Background Settings state
 const isBackgroundSettingsActive = ref(false);
+const customBackgroundRef = ref(null);
 
 /**
  * Page load complete handler
@@ -219,29 +223,32 @@ const toggleBackgroundSettings = () => {
  * Apply background settings
  */
 const applyBackground = (settings) => {
-    const appContainer = document.querySelector('.app-container');
-    if (!appContainer) return;
+    const bgLayer = customBackgroundRef.value;
+    if (!bgLayer) return;
 
     // Reset previous styles
-    appContainer.style.backgroundImage = '';
-    appContainer.style.backgroundColor = '';
+    bgLayer.style.backgroundImage = '';
+    bgLayer.style.backgroundColor = '';
+    bgLayer.style.backgroundSize = '';
+    bgLayer.style.backgroundPosition = '';
 
     // Apply new background based on type
     if (settings.type === 'solid') {
-        appContainer.style.backgroundColor = settings.solidColor;
+        bgLayer.style.backgroundColor = settings.solidColor;
     } else if (settings.type === 'gradient') {
-        appContainer.style.backgroundImage = settings.gradient;
+        bgLayer.style.backgroundImage = settings.gradient;
     } else if (settings.type === 'image' && settings.imageUrl) {
-        appContainer.style.backgroundImage = `url(${settings.imageUrl})`;
-        appContainer.style.backgroundSize = 'cover';
-        appContainer.style.backgroundPosition = 'center';
+        bgLayer.style.backgroundImage = `url(${settings.imageUrl})`;
+        bgLayer.style.backgroundSize = 'cover';
+        bgLayer.style.backgroundPosition = 'center';
+        bgLayer.style.backgroundRepeat = 'no-repeat';
     } else {
         // Default
-        appContainer.style.backgroundColor = 'var(--bg-primary)';
+        bgLayer.style.backgroundColor = '#f5f3f0';
     }
 
     // Apply opacity
-    appContainer.style.opacity = settings.opacity / 100;
+    bgLayer.style.opacity = settings.opacity / 100;
 };
 
 /**
@@ -329,8 +336,21 @@ onUnmounted(() => {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background: var(--bg-primary);
+    background: transparent;
     color: var(--text-primary);
+    position: relative;
+}
+
+/* Custom Background Layer - behind everything */
+.custom-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #f5f3f0;
+    z-index: -1;
+    transition: all 0.5s ease;
 }
 
 .view-container {

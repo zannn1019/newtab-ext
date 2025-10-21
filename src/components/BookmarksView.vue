@@ -181,7 +181,7 @@ onMounted(() => {
     justify-content: center;
     position: relative;
     overflow: hidden;
-    background: var(--bg-primary);
+    background: transparent;
     padding-top: 120px;
     padding-bottom: var(--space-16);
 }
