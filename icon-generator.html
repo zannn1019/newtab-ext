@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Icon Generator - Zan</title>
+    <style>
+      body {
+        font-family: monospace;
+        background: #000;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 2rem;
+      }
+      h1 {
+        font-weight: 300;
+        margin-bottom: 2rem;
+      }
+      .canvas-container {
+        display: flex;
+        gap: 2rem;
+        margin: 2rem 0;
+      }
+      canvas {
+        border: 1px solid #333;
+      }
+      button {
+        background: transparent;
+        border: 1px solid #fff;
+        color: #fff;
+        padding: 1rem 2rem;
+        font-family: monospace;
+        cursor: pointer;
+        margin: 0.5rem;
+      }
+      button:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .instructions {
+        max-width: 600px;
+        text-align: center;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.6);
+        margin-top: 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Zan Icon Generator</h1>
+    <div class="canvas-container">
+      <div>
+        <canvas id="icon16" width="16" height="16"></canvas>
+        <p>16x16</p>
+      </div>
+      <div>
+        <canvas id="icon48" width="48" height="48"></canvas>
+        <p>48x48</p>
+      </div>
+      <div>
+        <canvas id="icon128" width="128" height="128"></canvas>
+        <p>128x128</p>
+      </div>
+    </div>
+    <div>
+      <button onclick="generateIcons()">Generate Icons</button>
+      <button onclick="downloadAll()">Download All</button>
+    </div>
+    <div class="instructions">
+      <p>
+        This generates simple placeholder icons with a minimalist "K" symbol.
+      </p>
+      <p>
+        Click "Generate Icons" to preview, then "Download All" to save them.
+      </p>
+      <p>Place the downloaded files in the <code>icons/</code> folder.</p>
+    </div>
+
+    <script>
+      function drawIcon(canvas) {
+        const ctx = canvas.getContext("2d");
+        const size = canvas.width;
+
+        // Black background
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, size, size);
+
+        // White "K" shape (abstract motion lines)
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = size / 10;
+        ctx.lineCap = "round";
+
+        // Vertical line
+        ctx.beginPath();
+        ctx.moveTo(size * 0.3, size * 0.2);
+        ctx.lineTo(size * 0.3, size * 0.8);
+        ctx.stroke();
+
+        // Diagonal lines (forming "K")
+        ctx.beginPath();
+        ctx.moveTo(size * 0.3, size * 0.5);
+        ctx.lineTo(size * 0.7, size * 0.2);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(size * 0.3, size * 0.5);
+        ctx.lineTo(size * 0.7, size * 0.8);
+        ctx.stroke();
+      }
+
+      function generateIcons() {
+        ["icon16", "icon48", "icon128"].forEach((id) => {
+          const canvas = document.getElementById(id);
+          drawIcon(canvas);
+        });
+      }
+
+      function downloadCanvas(canvas, filename) {
+        const link = document.createElement("a");
+        link.download = filename;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      }
+
+      function downloadAll() {
+        downloadCanvas(document.getElementById("icon16"), "icon16.png");
+        setTimeout(() => {
+          downloadCanvas(document.getElementById("icon48"), "icon48.png");
+        }, 100);
+        setTimeout(() => {
+          downloadCanvas(document.getElementById("icon128"), "icon128.png");
+        }, 200);
+      }
+
+      // Auto-generate on load
+      window.onload = generateIcons;
+    </script>
+  </body>
+</html>

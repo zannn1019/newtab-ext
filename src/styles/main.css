@@ -1,0 +1,371 @@
+/*
+ * Zan - Main Stylesheet
+ * 禅 (Zen) - Classic Japanese Design System
+ * 
+ * Design Principles:
+ * - 侘寂 (Wabi-sabi): Beauty in imperfection
+ * - 幽玄 (Yūgen): Subtle profundity
+ * - 間 (Ma): Meaningful negative space
+ * - Traditional elegance with modern refinement
+ */
+
+/* ========================================
+   ROOT VARIABLES - 日本の美学
+   ======================================== */
+:root {
+  /* Traditional Japanese Colors - Washi Paper & Natural Tones */
+  --bg-primary: #f5f3f0; /* Washi paper - 和紙 */
+  --bg-secondary: #ede9e3; /* Kinari (natural cloth) - 生成り */
+  --bg-tertiary: #e4dfd7; /* Usuzumi (pale ink) - 薄墨 */
+
+  --text-primary: #2d2d2d; /* Sumi ink - 墨 */
+  --text-secondary: #5a5a5a; /* Hai-iro (ash gray) - 灰色 */
+  --text-tertiary: #8a8a8a; /* Nezumi (mouse gray) - 鼠色 */
+  --text-muted: #acacac; /* Light gray */
+
+  --accent-blue: #5b7c99; /* Gentle blue - 藍鼠 */
+  --accent-red: #b85d5d; /* Soft crimson - 蘇芳 */
+  --accent-green: #7d9d7d; /* Moss green - 苔色 */
+  --accent-gold: #c9a870; /* Old gold - 金茶 */
+
+  --border-color: rgba(45, 45, 45, 0.08);
+  --border-color-hover: rgba(45, 45, 45, 0.15);
+  --accent: var(--accent-blue);
+  --accent-dim: rgba(91, 124, 153, 0.08);
+
+  /* Shadow - Subtle depth */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+
+  /* Typography - Traditional Japanese */
+  --font-serif: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-sans: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --font-mono: "Noto Sans JP", "Courier New", monospace;
+
+  /* Spacing - Ma (間) negative space */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* Transitions */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* ========================================
+   RESET & BASE - 基本設定
+   ======================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.8;
+  overflow-x: hidden;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  position: relative;
+}
+
+/* Subtle paper texture */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.015) 2px,
+      rgba(0, 0, 0, 0.015) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.015) 2px,
+      rgba(0, 0, 0, 0.015) 4px
+    );
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* Very subtle vignette */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    circle at center,
+    transparent 0%,
+    transparent 60%,
+    rgba(0, 0, 0, 0.02) 100%
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ========================================
+   TYPOGRAPHY - 文字体系
+   Traditional Japanese aesthetic with proper hierarchy
+   ======================================== */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  line-height: 1.5;
+  color: var(--text-primary);
+  margin-bottom: var(--space-6);
+}
+
+h1 {
+  font-size: 3rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+h2 {
+  font-size: 2.25rem;
+  font-weight: 500;
+}
+
+h3 {
+  font-size: 1.75rem;
+  font-weight: 500;
+}
+
+h4 {
+  font-size: 1.35rem;
+  font-weight: 500;
+}
+
+p {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.9;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+  margin-bottom: var(--space-4);
+}
+
+/* Japanese Text Decoration - 日本語装飾 */
+.japanese-text {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+.japanese-title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  color: var(--text-primary);
+}
+
+/* Vertical Japanese text */
+.tategaki {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-family: var(--font-serif);
+  letter-spacing: 0.1em;
+  font-weight: 400;
+}
+
+/* ========================================
+   UTILITY CLASSES - ユーティリティ
+   ======================================== */
+
+/* Washi Paper Card Style - 和紙カード */
+.washi-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s var(--ease);
+  position: relative;
+  overflow: hidden;
+}
+
+.washi-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0;
+  transition: opacity 0.3s var(--ease);
+}
+
+.washi-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-color-hover);
+  transform: translateY(-2px);
+}
+
+.washi-card:hover::before {
+  opacity: 0.3;
+}
+
+/* Subtle Accent Line - 線 */
+.sumi-line {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--accent) 50%,
+    transparent 100%
+  );
+  opacity: 0.2;
+}
+
+/* Traditional Divider - 仕切り */
+.divider {
+  width: 100%;
+  height: 1px;
+  background: var(--border-color);
+  margin: var(--space-8) 0;
+}
+
+/* Fade Animations */
+.fade-in {
+  animation: fadeIn 0.8s var(--ease) forwards;
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.8s var(--ease) forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scrollbar Styling - Traditional scroll */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-color);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-tertiary);
+  border-radius: 2px;
+  border: 2px solid var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Selection Colors */
+::selection {
+  background: var(--accent-dim);
+  color: var(--text-primary);
+}
+
+::-moz-selection {
+  background: var(--accent-dim);
+  color: var(--text-primary);
+}
+
+/* Button Base Styles - 和風ボタン */
+button {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.3s var(--ease);
+  border: none;
+  background: transparent;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Link Styles */
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: all 0.3s var(--ease);
+  font-weight: 500;
+}
+
+a:hover {
+  border-bottom-color: var(--accent);
+}
+
+/* Focus Styles - Accessible */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
