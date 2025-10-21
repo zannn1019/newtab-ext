@@ -41,9 +41,14 @@
                 <div class="panel-header">
                     <h3 class="panel-title">Performance Summary</h3>
                     <p class="panel-subtitle">パフォーマンス概要</p>
-                    <button class="btn-refresh" @click="refreshData" :disabled="isSyncing">
-                        <span class="refresh-icon">🔄</span>
-                    </button>
+                    <div class="panel-actions">
+                        <button class="btn-settings" @click="showConfig = true" title="Settings">
+                            <span class="settings-icon">⚙️</span>
+                        </button>
+                        <button class="btn-refresh" @click="refreshData" :disabled="isSyncing" title="Refresh">
+                            <span class="refresh-icon">🔄</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="stats-grid">
@@ -194,8 +199,8 @@
         <!-- Configuration Modal -->
         <div v-if="showConfig" class="modal-overlay" @click="showConfig = false">
             <div class="modal-content config-modal" @click.stop>
-                <h3 class="modal-title">Binance API Configuration</h3>
-                <p class="modal-subtitle">API設定</p>
+                <h3 class="modal-title">Trading Journal Settings</h3>
+                <p class="modal-subtitle">取引設定 • Manage API & Symbols</p>
 
                 <form @submit.prevent="saveConfig" class="config-form">
                     <div class="form-group">
@@ -210,14 +215,37 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Symbols to Track</label>
-                        <input v-model="config.symbols" type="text" placeholder="BTCUSDT,ETHUSDT,BNBUSDT" />
-                        <div class="form-hint">Comma-separated list of trading pairs</div>
+                        <label>Market Type</label>
+                        <select v-model="config.marketType" class="market-select">
+                            <option value="spot">Spot Trading (Regular buy/sell)</option>
+                            <option value="futures">Futures Trading (Leveraged contracts)</option>
+                            <option value="both">Both (Check both markets)</option>
+                        </select>
+                        <div class="form-hint">Select which market you trade on. Futures is for leveraged trading.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Trading Pairs to Track</label>
+                        <div class="symbols-list">
+                            <div v-for="(symbol, index) in symbolsList" :key="index" class="symbol-item">
+                                <input v-model="symbolsList[index]" type="text" placeholder="BTCUSDT"
+                                    class="symbol-input" @input="validateSymbol(index)" />
+                                <button type="button" @click="removeSymbol(index)" class="btn-remove"
+                                    :disabled="symbolsList.length === 1">
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+                        <button type="button" @click="addSymbol" class="btn-add-symbol">
+                            + Add Trading Pair
+                        </button>
+                        <div class="form-hint">Common pairs: BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, ADAUSDT</div>
                     </div>
 
                     <div class="form-actions">
                         <button type="button" class="btn-secondary" @click="showConfig = false">Cancel</button>
-                        <button type="submit" class="btn-primary">Save & Sync</button>
+                        <button type="button" class="btn-secondary" @click="saveConfigOnly">Save Settings</button>
+                        <button type="submit" class="btn-primary">Save & Sync Now</button>
                     </div>
                 </form>
 
@@ -232,8 +260,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import gsap from 'gsap'
+import { fetchMyTrades, fetchAllTrades, testConnection, validateApiKey, validateApiSecret, parseError } from '../utils/binanceApi'
 
 // State
 const isSyncing = ref(false)
@@ -257,8 +286,12 @@ const detailPanelRef = ref(null)
 const config = ref({
     apiKey: '',
     apiSecret: '',
-    symbols: 'BTCUSDT,ETHUSDT,BNBUSDT'
+    symbols: 'BTCUSDT,ETHUSDT,BNBUSDT',
+    marketType: 'futures' // 'spot' or 'futures'
 })
+
+// Symbols list for UI
+const symbolsList = ref(['BTCUSDT', 'ETHUSDT', 'BNBUSDT'])
 
 // Data
 const trades = ref([])
@@ -287,12 +320,27 @@ const filteredTrades = computed(() => {
     return trades.value.filter(t => t.symbol === filterSymbol.value)
 })
 
+// Watch trades for debugging
+watch(trades, (newTrades) => {
+    console.log('🔄 Trades updated:', {
+        count: newTrades.length,
+        symbols: [...new Set(newTrades.map(t => t.symbol))],
+        uniqueSymbolsCount: uniqueSymbols.value.length,
+        filteredCount: filteredTrades.value.length,
+        currentFilter: filterSymbol.value
+    })
+}, { deep: true })
+
 // Load saved data
 const loadSavedData = () => {
     const savedConfig = localStorage.getItem('kinesis-binance-config')
     if (savedConfig) {
         try {
             config.value = JSON.parse(savedConfig)
+            // Populate symbols list from saved config
+            if (config.value.symbols) {
+                symbolsList.value = config.value.symbols.split(',').map(s => s.trim()).filter(s => s.length > 0)
+            }
         } catch (e) {
             console.error('Failed to load config')
         }
@@ -305,17 +353,62 @@ const loadSavedData = () => {
             trades.value = data.trades || []
             analytics.value = data.analytics || analytics.value
             hasSyncedBefore.value = true
+
+            console.log('📂 Loaded from localStorage:', {
+                tradesCount: trades.value.length,
+                symbols: [...new Set(trades.value.map(t => t.symbol))],
+                lastSync: data.lastSync ? new Date(data.lastSync).toLocaleString() : 'unknown'
+            })
         } catch (e) {
-            console.error('Failed to load trades')
+            console.error('❌ Failed to load trades:', e)
         }
+    } else {
+        console.log('📂 No saved data found in localStorage')
     }
+}
+
+// Symbol management
+const addSymbol = () => {
+    symbolsList.value.push('')
+}
+
+const removeSymbol = (index) => {
+    if (symbolsList.value.length > 1) {
+        symbolsList.value.splice(index, 1)
+    }
+}
+
+const validateSymbol = (index) => {
+    // Convert to uppercase and remove spaces
+    symbolsList.value[index] = symbolsList.value[index].toUpperCase().trim()
 }
 
 // Save configuration
 const saveConfig = () => {
+    // Convert symbols list to comma-separated string
+    const validSymbols = symbolsList.value.filter(s => s.trim().length > 0)
+    config.value.symbols = validSymbols.join(',')
+
     localStorage.setItem('kinesis-binance-config', JSON.stringify(config.value))
     showConfig.value = false
     startInitialSync()
+}
+
+// Save configuration without syncing (just update settings)
+const saveConfigOnly = () => {
+    // Convert symbols list to comma-separated string
+    const validSymbols = symbolsList.value.filter(s => s.trim().length > 0)
+    config.value.symbols = validSymbols.join(',')
+
+    localStorage.setItem('kinesis-binance-config', JSON.stringify(config.value))
+    showConfig.value = false
+
+    // Show a subtle confirmation
+    const message = `✅ Settings saved! (${validSymbols.length} trading pairs)`
+    console.log(message)
+
+    // Optional: You could add a toast notification here
+    alert(message + '\n\nClick "Refresh" button or "Save & Sync Now" to fetch new data.')
 }
 
 // Initial sync
@@ -325,41 +418,101 @@ const startInitialSync = async () => {
         return
     }
 
+    // Validate API key format
+    if (!validateApiKey(config.value.apiKey)) {
+        alert('❌ Invalid API key format. API keys should be 64 characters.')
+        showConfig.value = true
+        return
+    }
+
+    if (!validateApiSecret(config.value.apiSecret)) {
+        alert('❌ Invalid API secret format. API secrets should be 64 characters.')
+        showConfig.value = true
+        return
+    }
+
     isSyncing.value = true
-    syncMessage.value = 'Connecting to Binance...'
-    syncDetail.value = ''
+    syncMessage.value = 'Testing connection...'
+    syncDetail.value = 'Verifying API credentials'
 
     // Animate progress bar
     if (progressBarRef.value) {
         gsap.to(progressBarRef.value, {
-            width: '10%',
+            width: '5%',
             duration: 0.5,
             ease: 'power2.out'
         })
     }
 
     try {
-        // Fetch trades from Binance
-        const symbols = config.value.symbols.split(',').map(s => s.trim())
-        let allTrades = []
-
-        for (let i = 0; i < symbols.length; i++) {
-            const symbol = symbols[i]
-            syncMessage.value = `Fetching ${symbol} trades...`
-            syncDetail.value = `${i + 1} of ${symbols.length} symbols`
-
-            if (progressBarRef.value) {
-                gsap.to(progressBarRef.value, {
-                    width: `${30 + (i / symbols.length) * 40}%`,
-                    duration: 0.3
-                })
-            }
-
-            // Mock API call (replace with real Binance API)
-            await new Promise(resolve => setTimeout(resolve, 1000))
-            const symbolTrades = await fetchBinanceTrades(symbol)
-            allTrades = [...allTrades, ...symbolTrades]
+        // Test connection first
+        const isValid = await testConnection(config.value.apiKey, config.value.apiSecret)
+        if (!isValid) {
+            throw new Error('Invalid credentials or insufficient permissions. Please check your API keys and ensure "Enable Reading" is enabled.')
         }
+
+        if (progressBarRef.value) {
+            gsap.to(progressBarRef.value, {
+                width: '15%',
+                duration: 0.3
+            })
+        }
+
+        syncMessage.value = 'Connection successful!'
+        syncDetail.value = 'Scanning your trading history...'
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        if (progressBarRef.value) {
+            gsap.to(progressBarRef.value, {
+                width: '20%',
+                duration: 0.3
+            })
+        }
+
+        // Fetch ALL trades and discover symbols automatically
+        syncMessage.value = 'Discovering trading pairs...'
+
+        // Parse user-specified symbols (optional)
+        const userSymbols = config.value.symbols
+            ? config.value.symbols.split(',').map(s => s.trim()).filter(s => s.length > 0)
+            : []
+
+        const result = await fetchAllTrades(
+            config.value.apiKey,
+            config.value.apiSecret,
+            userSymbols,
+            config.value.marketType || 'futures', // Use configured market type
+            (message) => {
+                syncDetail.value = message
+
+                // Update progress bar smoothly
+                if (progressBarRef.value) {
+                    const currentWidth = parseInt(progressBarRef.value.style.width) || 20
+                    if (currentWidth < 70) {
+                        gsap.to(progressBarRef.value, {
+                            width: `${Math.min(currentWidth + 5, 70)}%`,
+                            duration: 0.3
+                        })
+                    }
+                }
+            }
+        )
+
+        const allTrades = result.trades
+        const discoveredSymbols = result.symbols
+
+        if (allTrades.length === 0) {
+            throw new Error('No trades found on your Binance account. Make sure you have completed some trades.')
+        }
+
+        console.log(`✅ Fetched ${allTrades.length} RAW trades from ${discoveredSymbols.length} symbols:`, discoveredSymbols.join(', '))
+
+        // Debug: Show trade count per symbol
+        const tradesBySymbol = {}
+        allTrades.forEach(trade => {
+            tradesBySymbol[trade.symbol] = (tradesBySymbol[trade.symbol] || 0) + 1
+        })
+        console.log('📊 Trades per symbol (RAW):', tradesBySymbol)
 
         syncMessage.value = 'Processing trades...'
         syncDetail.value = 'Calculating P&L and analytics'
@@ -373,6 +526,16 @@ const startInitialSync = async () => {
 
         // Process trades (FIFO matching)
         const processedTrades = processTrades(allTrades)
+
+        console.log(`📈 Processed ${processedTrades.length} closed positions from ${allTrades.length} raw trades`)
+
+        // Debug: Show closed positions per symbol
+        const closedBySymbol = {}
+        processedTrades.forEach(trade => {
+            closedBySymbol[trade.symbol] = (closedBySymbol[trade.symbol] || 0) + 1
+        })
+        console.log('📊 Closed positions per symbol:', closedBySymbol)
+
         const calculatedAnalytics = calculateAnalytics(processedTrades)
 
         syncMessage.value = 'Saving data...'
@@ -384,15 +547,28 @@ const startInitialSync = async () => {
         }
 
         // Save to localStorage
-        localStorage.setItem('kinesis-trading-journal', JSON.stringify({
+        const dataToSave = {
             trades: processedTrades,
             analytics: calculatedAnalytics,
             lastSync: Date.now()
-        }))
+        }
+
+        localStorage.setItem('kinesis-trading-journal', JSON.stringify(dataToSave))
+        console.log('💾 Saved to localStorage:', {
+            tradesCount: processedTrades.length,
+            symbols: [...new Set(processedTrades.map(t => t.symbol))],
+            analytics: calculatedAnalytics
+        })
 
         trades.value = processedTrades
         analytics.value = calculatedAnalytics
         hasSyncedBefore.value = true
+
+        console.log('✅ Updated Vue state:', {
+            tradesCount: trades.value.length,
+            analyticsTotal: analytics.value.totalTrades,
+            hasSynced: hasSyncedBefore.value
+        })
 
         await new Promise(resolve => setTimeout(resolve, 500))
 
@@ -400,14 +576,16 @@ const startInitialSync = async () => {
 
         // Animate dashboard entrance
         nextTick(() => {
+            console.log('🎬 Animating dashboard entrance')
             animateDashboardEntrance()
         })
     } catch (error) {
         console.error('Sync error:', error)
         syncMessage.value = 'Sync failed'
-        syncDetail.value = error.message
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        syncDetail.value = parseError(error)
+        await new Promise(resolve => setTimeout(resolve, 3000))
         isSyncing.value = false
+        showConfig.value = true // Show config again so user can fix
     }
 }
 
@@ -418,41 +596,39 @@ const refreshData = () => {
 
 // Mock Binance API fetch (replace with real implementation)
 const fetchBinanceTrades = async (symbol) => {
-    // This should call real Binance API with crypto-js for signing
-    // For now, return mock data
-    const mockTrades = []
-    const count = Math.floor(Math.random() * 20) + 10
-
-    for (let i = 0; i < count; i++) {
-        const isBuy = Math.random() > 0.5
-        mockTrades.push({
+    try {
+        // Call real Binance API
+        const trades = await fetchMyTrades(
             symbol,
-            orderId: Date.now() + i,
-            side: isBuy ? 'BUY' : 'SELL',
-            price: (40000 + Math.random() * 10000).toFixed(2),
-            qty: (Math.random() * 0.1).toFixed(6),
-            commission: (Math.random() * 5).toFixed(4),
-            commissionAsset: 'USDT',
-            time: Date.now() - (i * 86400000) - Math.random() * 86400000
-        })
+            config.value.apiKey,
+            config.value.apiSecret,
+            1000 // max trades per symbol
+        )
+        return trades
+    } catch (error) {
+        console.error(`Failed to fetch ${symbol}:`, error)
+        throw new Error(`Could not fetch trades for ${symbol}: ${error.message}`)
     }
-
-    return mockTrades
 }
 
 // Process trades using FIFO
 const processTrades = (rawTrades) => {
     const closedPositions = []
-    const openPositions = {}
+    const openLongPositions = {}  // BUY positions waiting for SELL
+    const openShortPositions = {} // SELL positions waiting for BUY
 
-    // Sort by time
+    // Sort by time (chronological order)
     rawTrades.sort((a, b) => a.time - b.time)
 
     rawTrades.forEach(trade => {
         const { symbol, side, price, qty, commission, time } = trade
 
-        if (!openPositions[symbol]) {
-            openPositions[symbol] = []
+        // Initialize position tracking for this symbol
+        if (!openLongPositions[symbol]) {
+            openLongPositions[symbol] = []
+        }
+        if (!openShortPositions[symbol]) {
+            openShortPositions[symbol] = []
         }
 
         const numPrice = parseFloat(price)
@@ -460,24 +636,65 @@ const processTrades = (rawTrades) => {
         const numCommission = parseFloat(commission)
 
         if (side === 'BUY') {
-            openPositions[symbol].push({
-                entryPrice: numPrice,
-                quantity: numQty,
-                entryTime: time,
-                entryCommission: numCommission
-            })
-        } else {
-            // SELL - close positions FIFO
+            // First, check if this BUY closes any SHORT positions (FIFO)
             let remainingQty = numQty
-            let exitCommission = numCommission
+            let buyCommission = numCommission
 
-            while (remainingQty > 0 && openPositions[symbol].length > 0) {
-                const position = openPositions[symbol][0]
+            while (remainingQty > 0 && openShortPositions[symbol].length > 0) {
+                const position = openShortPositions[symbol][0]
                 const closeQty = Math.min(remainingQty, position.quantity)
 
+                // For SHORT: profit when buy price < sell price
+                const pnl = (position.entryPrice - numPrice) * closeQty -
+                    (position.entryCommission * (closeQty / position.quantity)) -
+                    (buyCommission * (closeQty / numQty))
+
+                closedPositions.push({
+                    id: `${symbol}-${time}-${Math.random()}`,
+                    symbol,
+                    side: 'SHORT',
+                    entryPrice: position.entryPrice.toFixed(2),
+                    exitPrice: numPrice.toFixed(2),
+                    quantity: closeQty.toFixed(6),
+                    entryTime: position.entryTime,
+                    exitTime: time,
+                    duration: time - position.entryTime,
+                    pnl,
+                    commission: (position.entryCommission * (closeQty / position.quantity)) +
+                        (buyCommission * (closeQty / numQty)),
+                })
+
+                remainingQty -= closeQty
+                position.quantity -= closeQty
+
+                if (position.quantity <= 0.000001) { // Handle floating point
+                    openShortPositions[symbol].shift()
+                }
+            }
+
+            // If there's remaining quantity, open a new LONG position
+            if (remainingQty > 0.000001) {
+                openLongPositions[symbol].push({
+                    entryPrice: numPrice,
+                    quantity: remainingQty,
+                    entryTime: time,
+                    entryCommission: buyCommission * (remainingQty / numQty)
+                })
+            }
+
+        } else if (side === 'SELL') {
+            // First, check if this SELL closes any LONG positions (FIFO)
+            let remainingQty = numQty
+            let sellCommission = numCommission
+
+            while (remainingQty > 0 && openLongPositions[symbol].length > 0) {
+                const position = openLongPositions[symbol][0]
+                const closeQty = Math.min(remainingQty, position.quantity)
+
+                // For LONG: profit when sell price > buy price
                 const pnl = (numPrice - position.entryPrice) * closeQty -
                     (position.entryCommission * (closeQty / position.quantity)) -
-                    (exitCommission * (closeQty / numQty))
+                    (sellCommission * (closeQty / numQty))
 
                 closedPositions.push({
                     id: `${symbol}-${time}-${Math.random()}`,
@@ -490,15 +707,26 @@ const processTrades = (rawTrades) => {
                     exitTime: time,
                     duration: time - position.entryTime,
                     pnl,
-                    commission: position.entryCommission + exitCommission,
+                    commission: (position.entryCommission * (closeQty / position.quantity)) +
+                        (sellCommission * (closeQty / numQty)),
                 })
 
                 remainingQty -= closeQty
                 position.quantity -= closeQty
 
-                if (position.quantity <= 0) {
-                    openPositions[symbol].shift()
+                if (position.quantity <= 0.000001) { // Handle floating point
+                    openLongPositions[symbol].shift()
                 }
+            }
+
+            // If there's remaining quantity, open a new SHORT position
+            if (remainingQty > 0.000001) {
+                openShortPositions[symbol].push({
+                    entryPrice: numPrice,
+                    quantity: remainingQty,
+                    entryTime: time,
+                    entryCommission: sellCommission * (remainingQty / numQty)
+                })
             }
         }
     })
@@ -904,10 +1132,16 @@ onMounted(() => {
     color: var(--text-muted);
 }
 
-.btn-refresh {
+.panel-actions {
     position: absolute;
     top: 0;
     right: 0;
+    display: flex;
+    gap: var(--space-2);
+}
+
+.btn-refresh,
+.btn-settings {
     width: 36px;
     height: 36px;
     background: transparent;
@@ -925,12 +1159,18 @@ onMounted(() => {
     transform: rotate(180deg);
 }
 
+.btn-settings:hover {
+    border-color: var(--accent);
+    background: rgba(139, 69, 19, 0.05);
+}
+
 .btn-refresh:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-.refresh-icon {
+.refresh-icon,
+.settings-icon {
     font-size: 1rem;
 }
 
@@ -1260,7 +1500,8 @@ onMounted(() => {
     letter-spacing: 0.05em;
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
     padding: var(--space-3) var(--space-4);
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
@@ -1271,10 +1512,16 @@ onMounted(() => {
     transition: all 0.3s var(--ease);
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group select:focus {
     outline: none;
     border-color: var(--accent);
     background: var(--bg-primary);
+}
+
+.market-select {
+    width: 100%;
+    cursor: pointer;
 }
 
 .form-hint {
@@ -1283,6 +1530,84 @@ onMounted(() => {
     margin-top: var(--space-1);
 }
 
+/* Symbols List Management */
+.symbols-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.symbol-item {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+}
+
+.symbol-input {
+    flex: 1;
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    transition: all 0.3s var(--ease);
+}
+
+.symbol-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--bg-primary);
+}
+
+.btn-remove {
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.3s var(--ease);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-remove:hover:not(:disabled) {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.btn-remove:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.btn-add-symbol {
+    padding: var(--space-2) var(--space-4);
+    background: transparent;
+    border: 1px dashed var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s var(--ease);
+    width: 100%;
+}
+
+.btn-add-symbol:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(139, 69, 19, 0.05);
+}
 .form-actions {
     display: flex;
     gap: var(--space-3);

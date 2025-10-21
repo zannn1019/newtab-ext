@@ -19,6 +19,11 @@ export default defineConfig({
         // Copy manifest.json
         copyFileSync("manifest.json", "dist/manifest.json");
 
+        // Copy background.js (service worker)
+        if (existsSync("public/background.js")) {
+          copyFileSync("public/background.js", "dist/background.js");
+        }
+
         // Copy icons if they exist
         if (existsSync("icons")) {
           if (!existsSync("dist/icons")) {

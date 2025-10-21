@@ -94,7 +94,7 @@ const commands = ref([
         nameJP: '市場',
         description: 'Cryptocurrency prices',
         icon: '📈',
-        category: 'Navigation',
+        category: 'Trading',
         key: 'K',
         keywords: ['market', 'crypto', 'finance', 'ticker', 'bitcoin'],
         action: () => emit('navigate', 'market')
@@ -116,7 +116,7 @@ const commands = ref([
         nameJP: '取引記録',
         description: 'Trading analytics and history',
         icon: '📊',
-        category: 'Navigation',
+        category: 'Trading',
         key: 'J',
         keywords: ['journal', 'trading', 'trades', 'analytics', 'binance', 'pnl'],
         action: () => emit('navigate', 'journal')
@@ -132,7 +132,6 @@ const commands = ref([
         keywords: ['notes', 'memo', 'write'],
         action: () => emit('navigate', 'notes')
     },
-    // Settings Commands
     {
         id: 'settings-background',
         name: 'Background Settings',
