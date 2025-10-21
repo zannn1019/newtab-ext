@@ -42,6 +42,7 @@ import CommandPalette from "./components/CommandPalette.vue";
 import ZenView from "./components/ZenView.vue";
 import MarketView from "./components/MarketView.vue";
 import BookmarksView from "./components/BookmarksView.vue";
+import JournalView from "./components/JournalView.vue";
 import QuickNotes from "./components/QuickNotes.vue";
 import BackgroundSettings from "./components/BackgroundSettings.vue";
 import AnimatedBackground from "./components/AnimatedBackground.vue";
@@ -78,6 +79,7 @@ const viewComponents = {
     zen: ZenView,
     market: MarketView,
     bookmarks: BookmarksView,
+    journal: JournalView,
 };
 
 const currentViewComponent = computed(() => viewComponents[currentView.value]);
@@ -224,36 +226,47 @@ const toggleBackgroundSettings = () => {
  */
 const applyBackground = (settings) => {
     const bgLayer = customBackgroundRef.value;
-    if (!bgLayer) return;
+    if (!bgLayer) {
+        console.warn('Background layer not found');
+        return;
+    }
+
+    console.log('Applying background settings:', settings);
 
     // Reset previous styles
     bgLayer.style.backgroundImage = '';
     bgLayer.style.backgroundColor = '';
     bgLayer.style.backgroundSize = '';
     bgLayer.style.backgroundPosition = '';
+    bgLayer.style.backgroundRepeat = '';
 
     // Apply new background based on type
     if (settings.type === 'solid') {
         bgLayer.style.backgroundColor = settings.solidColor;
+        console.log('Applied solid color:', settings.solidColor);
     } else if (settings.type === 'gradient') {
         bgLayer.style.backgroundImage = settings.gradient;
+        console.log('Applied gradient:', settings.gradient);
     } else if (settings.type === 'image' && settings.imageUrl) {
         bgLayer.style.backgroundImage = `url(${settings.imageUrl})`;
         bgLayer.style.backgroundSize = 'cover';
         bgLayer.style.backgroundPosition = 'center';
         bgLayer.style.backgroundRepeat = 'no-repeat';
+        console.log('Applied image background');
     } else {
         // Default
         bgLayer.style.backgroundColor = '#f5f3f0';
+        console.log('Applied default background');
     }
 
     // Apply opacity
     bgLayer.style.opacity = settings.opacity / 100;
+    console.log('Applied opacity:', settings.opacity / 100);
 };
 
 /**
  * Global Keyboard Handler
- * Listens for M, K, B, Z and Escape keys
+ * Listens for M, K, B, J, Z and Escape keys
  */
 const handleGlobalKeydown = (e) => {
     // Don't trigger if user is typing in an input/textarea
@@ -275,6 +288,12 @@ const handleGlobalKeydown = (e) => {
     if (e.key.toLowerCase() === 'b' && !isInInput) {
         e.preventDefault();
         handleNavigation('bookmarks');
+    }
+
+    // 'j' key - Navigate to Journal view
+    if (e.key.toLowerCase() === 'j' && !isInInput) {
+        e.preventDefault();
+        handleNavigation('journal');
     }
 
     // 'z' key - Navigate to Zen view
@@ -306,21 +325,23 @@ onMounted(() => {
         currentView.value = 'zen';
     }
 
-    // Load and apply saved background
-    const savedBackground = localStorage.getItem('zan-background-settings');
-    if (savedBackground) {
-        try {
-            const settings = JSON.parse(savedBackground);
-            nextTick(() => {
-                applyBackground(settings);
-            });
-        } catch (e) {
-            console.error('Failed to load background settings');
-        }
-    }
-
     // Add global keyboard listener
     document.addEventListener('keydown', handleGlobalKeydown);
+
+    // Load and apply saved background after refs are ready
+    nextTick(() => {
+        const savedBackground = localStorage.getItem('zan-background-settings');
+        if (savedBackground) {
+            try {
+                const settings = JSON.parse(savedBackground);
+                setTimeout(() => {
+                    applyBackground(settings);
+                }, 100);
+            } catch (e) {
+                console.error('Failed to load background settings');
+            }
+        }
+    });
 });
 
 // Cleanup on unmount

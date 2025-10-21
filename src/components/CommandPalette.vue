@@ -104,11 +104,22 @@ const commands = ref([
         name: 'Bookmarks',
         nameJP: 'ブックマーク',
         description: 'Quick links and favorites',
-        icon: '�',
+        icon: '🔖',
         category: 'Navigation',
         key: 'B',
         keywords: ['bookmarks', 'links', 'favorites', 'sites'],
         action: () => emit('navigate', 'bookmarks')
+    },
+    {
+        id: 'nav-journal',
+        name: 'Trading Journal',
+        nameJP: '取引記録',
+        description: 'Trading analytics and history',
+        icon: '📊',
+        category: 'Navigation',
+        key: 'J',
+        keywords: ['journal', 'trading', 'trades', 'analytics', 'binance', 'pnl'],
+        action: () => emit('navigate', 'journal')
     },
     {
         id: 'nav-notes',

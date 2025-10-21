@@ -39,11 +39,23 @@
 - **Slide-in Animation** — GSAP-powered entrance from right
 - **Japanese Headers** — メモ (Memo) with ambient decoration
 
+### Trading Journal (Press `J`) 📊 **NEW!**
+
+- **Binance Integration** — Sync your trading history via API
+- **Performance Analytics** — Total P&L, Win Rate, Profit Factor, Best Trade
+- **FIFO Position Matching** — Accurate closed position calculations
+- **Trade History** — Detailed breakdown of every trade with filters
+- **GSAP Animations** — Smooth loading progress, staggered stats reveal, slide-in details
+- **Detail Panel** — Click any trade for full entry/exit/commission breakdown
+- **localStorage Persistence** — Cached data for instant dashboard loading
+
+> **See**: [`JOURNAL_GUIDE.md`](JOURNAL_GUIDE.md) for complete setup & usage guide
+
 ### Command Palette
 
 - **Smart Search** — Type commands or search Google
-- **View Commands** — Type "market", "zen", "finance", "crypto"
-- **Keyboard Shortcuts Display** — Z, K, M, Esc
+- **View Commands** — Type "market", "zen", "finance", "crypto", "journal", "trades"
+- **Keyboard Shortcuts Display** — Z, K, J, B, M, Esc
 
 ---
 
@@ -53,13 +65,17 @@
 | ----- | ----------------------- |
 | `Z`   | Navigate to Zen View    |
 | `K`   | Navigate to Market View |
+| `J`   | Navigate to Trading Journal 📊 **NEW!** |
+| `B`   | Navigate to Bookmarks   |
 | `M`   | Toggle Quick Notes      |
 | `Esc` | Close Notes / Clear     |
 
 **Command Palette Search:**
 
+- Type "journal", "trades" → Trading Journal 📊
 - Type "market", "finance", "crypto" → Market View
 - Type "zen", "home", "clock" → Zen View
+- Type "bookmarks", "links" → Bookmarks View
 - Any other text + Enter → Google search
 
 ---
@@ -151,6 +167,8 @@ npm run build
 - `kinesis-last-view` — Restores last active view
 - `kinesis-notes` — Quick Notes content (array)
 - `kinesis-market-tickers` — (Future: custom ticker list)
+- `kinesis-binance-config` — Trading Journal API credentials 📊 **NEW!**
+- `kinesis-trading-journal` — Cached trades and analytics 📊 **NEW!**
 
 ---
 
@@ -179,6 +197,9 @@ npm run build
 
 ## 🚀 Future Enhancements
 
+- [x] Trading Journal with Binance API integration 📊
+- [x] Performance analytics (P&L, Win Rate, Profit Factor)
+- [x] FIFO position matching algorithm
 - [ ] Custom ticker configuration (localStorage)
 - [ ] Settings UI for API preferences
 - [ ] More cryptocurrencies support
@@ -186,6 +207,8 @@ npm run build
 - [ ] Weather widget
 - [ ] Pomodoro timer
 - [ ] Export/import settings
+- [ ] Trade notes and tags
+- [ ] Performance charts and visualizations
 
 ---
 
