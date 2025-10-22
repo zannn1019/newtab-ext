@@ -1,62 +1,41 @@
 <template>
     <div class="weather-widget" v-if="weather" ref="weatherWidgetRef">
-        <!-- Glass morphism container -->
+        <!-- Minimalist Japanese container -->
         <div class="weather-container">
-            <!-- Animated background particles -->
-            <div class="weather-particles">
-                <div class="particle" v-for="i in 12" :key="i" :style="{ '--particle-index': i }"></div>
-            </div>
+            <!-- Vertical Japanese text decoration -->
+            <div class="weather-kanji">天気</div>
 
             <!-- Main weather display -->
             <div class="weather-main">
-                <div class="weather-icon-container">
-                    <div class="weather-icon">{{ getWeatherEmoji(weather.condition) }}</div>
-                    <div class="weather-glow"></div>
+                <div class="weather-temp">
+                    <span class="temp-value">{{ Math.round(weather.temp) }}</span>
+                    <span class="temp-unit">°</span>
                 </div>
+
+                <div class="weather-divider"></div>
 
                 <div class="weather-info">
-                    <div class="temperature-display">
-                        <span class="temp-value">{{ Math.round(weather.temp) }}</span>
-                        <span class="temp-unit">°C</span>
-                    </div>
                     <div class="weather-condition">{{ weather.condition }}</div>
-                    <div class="weather-location">
-                        <span class="location-icon">📍</span>
-                        <span>{{ weather.location }}</span>
-                    </div>
+                    <div class="weather-location">{{ weather.location }}</div>
                 </div>
             </div>
 
-            <!-- Weather details grid -->
+            <!-- Weather details - minimalist grid -->
             <div class="weather-details">
-                <div class="detail-card" data-detail="humidity">
-                    <div class="detail-icon">💧</div>
-                    <div class="detail-content">
-                        <div class="detail-value">{{ weather.humidity }}%</div>
-                        <div class="detail-label">Humidity</div>
-                    </div>
+                <div class="detail-item">
+                    <span class="detail-label">Humidity <span class="label-jp">湿度</span></span>
+                    <span class="detail-value">{{ weather.humidity }}%</span>
                 </div>
-
-                <div class="detail-card" data-detail="wind">
-                    <div class="detail-icon">💨</div>
-                    <div class="detail-content">
-                        <div class="detail-value">{{ weather.windSpeed }}</div>
-                        <div class="detail-label">Wind km/h</div>
-                    </div>
+                <div class="detail-divider"></div>
+                <div class="detail-item">
+                    <span class="detail-label">Wind <span class="label-jp">風速</span></span>
+                    <span class="detail-value">{{ weather.windSpeed }}</span>
                 </div>
-
-                <div class="detail-card" data-detail="feels">
-                    <div class="detail-icon">🌡️</div>
-                    <div class="detail-content">
-                        <div class="detail-value">{{ Math.round(weather.feelsLike) }}°</div>
-                        <div class="detail-label">Feels Like</div>
-                    </div>
+                <div class="detail-divider"></div>
+                <div class="detail-item">
+                    <span class="detail-label">Feels <span class="label-jp">体感</span></span>
+                    <span class="detail-value">{{ Math.round(weather.feelsLike) }}°</span>
                 </div>
-            </div>
-
-            <!-- Last updated -->
-            <div class="weather-footer">
-                <span class="update-time">Updated {{ formatUpdateTime(weather.lastUpdated) }}</span>
             </div>
         </div>
     </div>
@@ -70,16 +49,33 @@ const weather = ref(null)
 const weatherWidgetRef = ref(null)
 
 const fetchWeather = async () => {
+    // Try automatic detection
     try {
-        // Get user's location
+        // Check if geolocation is available
+        if (!navigator.geolocation) {
+            console.warn('Geolocation not supported, using IP-based location')
+            await fetchWeatherByIP()
+            return
+        }
+
+        // Get user's location with better error handling
         const position = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-                timeout: 10000,
-                enableHighAccuracy: false
-            })
+            navigator.geolocation.getCurrentPosition(
+                resolve,
+                (error) => {
+                    console.error('Geolocation error:', error.message)
+                    reject(error)
+                },
+                {
+                    timeout: 15000,
+                    enableHighAccuracy: true,
+                    maximumAge: 300000 // Cache position for 5 minutes
+                }
+            )
         })
 
         const { latitude, longitude } = position.coords
+        console.log(`Location detected: ${latitude}, ${longitude}`)
 
         // Fetch weather from Open-Meteo (free, no API key needed)
         const weatherResponse = await fetch(
@@ -87,11 +83,20 @@ const fetchWeather = async () => {
         )
         const weatherData = await weatherResponse.json()
 
-        // Fetch location name from reverse geocoding
+        // Fetch location name from reverse geocoding with User-Agent
         const locationResponse = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=10`
         )
         const locationData = await locationResponse.json()
+
+        const cityName = locationData.address?.city ||
+            locationData.address?.town ||
+            locationData.address?.village ||
+            locationData.address?.county ||
+            locationData.address?.state ||
+            'Your Location'
+
+        console.log('Location name:', cityName)
 
         weather.value = {
             temp: weatherData.current.temperature_2m,
@@ -99,7 +104,7 @@ const fetchWeather = async () => {
             humidity: weatherData.current.relative_humidity_2m,
             windSpeed: Math.round(weatherData.current.wind_speed_10m),
             condition: getWeatherCondition(weatherData.current.weather_code),
-            location: locationData.address?.city || locationData.address?.town || locationData.address?.village || 'Your Location',
+            location: cityName,
             lastUpdated: new Date()
         }
 
@@ -108,17 +113,27 @@ const fetchWeather = async () => {
             animateWeatherWidget()
         })
     } catch (error) {
-        console.error('Failed to fetch weather:', error)
-        // Fallback to default location
-        fetchDefaultWeather()
+        console.error('Failed to fetch weather with geolocation:', error)
+        // Try IP-based location as fallback
+        await fetchWeatherByIP()
     }
 }
 
-const fetchDefaultWeather = async () => {
+// Function to get weather based on IP address
+const fetchWeatherByIP = async () => {
     try {
-        // Default to Tokyo coordinates
+        console.log('Attempting IP-based location...')
+
+        // Get location from IP using ipapi.co (free, no key needed)
+        const ipResponse = await fetch('https://ipapi.co/json/')
+        const ipData = await ipResponse.json()
+
+        const { latitude, longitude, city, country_name } = ipData
+        console.log(`IP location: ${city}, ${country_name} (${latitude}, ${longitude})`)
+
+        // Fetch weather from Open-Meteo
         const weatherResponse = await fetch(
-            'https://api.open-meteo.com/v1/forecast?latitude=35.6762&longitude=139.6503&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto'
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto`
         )
         const weatherData = await weatherResponse.json()
 
@@ -128,7 +143,36 @@ const fetchDefaultWeather = async () => {
             humidity: weatherData.current.relative_humidity_2m,
             windSpeed: Math.round(weatherData.current.wind_speed_10m),
             condition: getWeatherCondition(weatherData.current.weather_code),
-            location: 'Tokyo',
+            location: city || country_name || 'Your Location',
+            lastUpdated: new Date()
+        }
+
+        nextTick(() => {
+            animateWeatherWidget()
+        })
+    } catch (error) {
+        console.error('Failed to fetch weather by IP:', error)
+        // Final fallback
+        fetchDefaultWeather()
+    }
+}
+
+const fetchDefaultWeather = async () => {
+    try {
+        console.log('Using default location (Jakarta, Indonesia)')
+        // Default to Jakarta, Indonesia coordinates
+        const weatherResponse = await fetch(
+            'https://api.open-meteo.com/v1/forecast?latitude=-6.2088&longitude=106.8456&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto'
+        )
+        const weatherData = await weatherResponse.json()
+
+        weather.value = {
+            temp: weatherData.current.temperature_2m,
+            feelsLike: weatherData.current.apparent_temperature,
+            humidity: weatherData.current.relative_humidity_2m,
+            windSpeed: Math.round(weatherData.current.wind_speed_10m),
+            condition: getWeatherCondition(weatherData.current.weather_code),
+            location: 'Jakarta',
             lastUpdated: new Date()
         }
 
@@ -301,270 +345,129 @@ onMounted(() => {
 }
 
 .weather-container {
-    width: 380px;
-    background: linear-gradient(135deg,
-            rgba(255, 255, 255, 0.1) 0%,
-            rgba(255, 255, 255, 0.05) 100%);
-    backdrop-filter: blur(30px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 24px;
-    padding: var(--space-8);
-    box-shadow:
-        0 20px 60px rgba(0, 0, 0, 0.15),
-        0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    width: 280px;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 2px;
+    padding: var(--space-6);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
     position: relative;
-    overflow: hidden;
+    font-family: var(--font-serif);
 }
 
-/* Animated particles */
-.weather-particles {
+/* Vertical Japanese text decoration */
+.weather-kanji {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none;
-    overflow: hidden;
-}
-
-.particle {
-    position: absolute;
-    width: 4px;
-    height: 4px;
-    background: rgba(91, 124, 153, 0.3);
-    border-radius: 50%;
-    opacity: 0;
-    transform: scale(0);
-    animation: particleDrift 15s ease-in-out infinite;
-    animation-delay: calc(var(--particle-index) * -1.2s);
-}
-
-.particle:nth-child(odd) {
-    left: calc(8% * var(--particle-index));
-    animation-duration: 12s;
-}
-
-.particle:nth-child(even) {
-    right: calc(8% * var(--particle-index));
-    animation-duration: 18s;
-}
-
-@keyframes particleDrift {
-
-    0%,
-    100% {
-        transform: translateY(0) scale(0.5);
-        opacity: 0;
-    }
-
-    10% {
-        opacity: 0.5;
-    }
-
-    50% {
-        transform: translateY(-120px) translateX(20px) scale(1);
-        opacity: 0.8;
-    }
-
-    90% {
-        opacity: 0.3;
-    }
+    top: var(--space-6);
+    left: var(--space-4);
+    writing-mode: vertical-rl;
+    font-family: var(--font-serif);
+    font-size: 0.75rem;
+    font-weight: 300;
+    color: rgba(0, 0, 0, 0.15);
+    letter-spacing: 0.2em;
 }
 
 /* Main weather display */
 .weather-main {
     display: flex;
     align-items: center;
-    gap: var(--space-6);
-    margin-bottom: var(--space-8);
-    position: relative;
-    z-index: 2;
+    gap: var(--space-5);
+    margin-bottom: var(--space-6);
+    padding-left: var(--space-6);
 }
 
-.weather-icon-container {
-    position: relative;
+.weather-temp {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: baseline;
 }
 
-.weather-icon {
-    font-size: 6rem;
+.temp-value {
+    font-size: 4.5rem;
+    font-weight: 200;
     line-height: 1;
-    position: relative;
-    z-index: 2;
-    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2));
+    color: #1a1a1a;
+    letter-spacing: -0.02em;
 }
 
-.weather-glow {
-    position: absolute;
-    width: 120px;
-    height: 120px;
-    background: radial-gradient(circle,
-            rgba(91, 124, 153, 0.4) 0%,
-            transparent 70%);
-    border-radius: 50%;
-    z-index: 1;
+.temp-unit {
+    font-size: 2rem;
+    font-weight: 200;
+    color: rgba(0, 0, 0, 0.4);
+    margin-left: var(--space-1);
+}
+
+.weather-divider {
+    width: 1px;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.08);
 }
 
 .weather-info {
-    flex: 1;
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
 }
 
-.temperature-display {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-2);
-}
-
-.temp-value {
-    font-family: var(--font-serif);
-    font-size: 4rem;
-    font-weight: 300;
-    line-height: 1;
-    color: var(--text-primary);
-    background: linear-gradient(135deg,
-            var(--text-primary) 0%,
-            var(--accent) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-.temp-unit {
-    font-family: var(--font-sans);
-    font-size: 1.5rem;
-    font-weight: 300;
-    color: var(--text-secondary);
-}
-
 .weather-condition {
-    font-family: var(--font-sans);
-    font-size: 1.1rem;
-    font-weight: 400;
-    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 300;
+    color: rgba(0, 0, 0, 0.75);
     letter-spacing: 0.05em;
 }
 
 .weather-location {
+    font-size: 0.75rem;
+    font-weight: 300;
+    color: rgba(0, 0, 0, 0.35);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+/* Weather details - minimalist grid */
+.weather-details {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    font-family: var(--font-serif);
-    font-size: 0.9rem;
-    font-weight: 300;
-    color: var(--text-tertiary);
-    letter-spacing: 0.08em;
+    justify-content: space-between;
+    padding: var(--space-4) var(--space-6);
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    margin-bottom: var(--space-4);
 }
 
-.location-icon {
-    font-size: 1rem;
-    line-height: 1;
-}
-
-/* Weather details grid */
-.weather-details {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-3);
-    margin-bottom: var(--space-6);
-    position: relative;
-    z-index: 2;
-}
-
-.detail-card {
-    background: linear-gradient(135deg,
-            rgba(255, 255, 255, 0.08) 0%,
-            rgba(255, 255, 255, 0.02) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: var(--space-4);
+.detail-item {
     display: flex;
     flex-direction: column;
-    align-items: center;
     gap: var(--space-2);
-    transition: all 0.3s ease;
-    cursor: pointer;
-}
-
-.detail-card:hover {
-    transform: translateY(-4px);
-    background: linear-gradient(135deg,
-            rgba(255, 255, 255, 0.12) 0%,
-            rgba(255, 255, 255, 0.06) 100%);
-    border-color: rgba(91, 124, 153, 0.3);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-}
-
-.detail-icon {
-    font-size: 2rem;
-    line-height: 1;
-    animation: detailIconBounce 2s ease-in-out infinite;
-}
-
-.detail-card:nth-child(1) .detail-icon {
-    animation-delay: 0s;
-}
-
-.detail-card:nth-child(2) .detail-icon {
-    animation-delay: 0.3s;
-}
-
-.detail-card:nth-child(3) .detail-icon {
-    animation-delay: 0.6s;
-}
-
-@keyframes detailIconBounce {
-
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-
-    50% {
-        transform: translateY(-5px);
-    }
-}
-
-.detail-content {
-    text-align: center;
-}
-
-.detail-value {
-    font-family: var(--font-serif);
-    font-size: 1.3rem;
-    font-weight: 400;
-    color: var(--text-primary);
-    margin-bottom: var(--space-1);
+    align-items: center;
 }
 
 .detail-label {
-    font-family: var(--font-sans);
-    font-size: 0.7rem;
-    font-weight: 400;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-}
-
-/* Footer */
-.weather-footer {
-    text-align: center;
-    padding-top: var(--space-4);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    position: relative;
-    z-index: 2;
-}
-
-.update-time {
-    font-family: var(--font-serif);
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     font-weight: 300;
-    color: var(--text-tertiary);
-    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.label-jp {
+    font-size: 0.6rem;
+    opacity: 0.3;
+    margin-left: var(--space-1);
+    font-weight: 300;
+}
+
+.detail-value {
+    font-size: 0.95rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.detail-divider {
+    width: 1px;
+    height: 30px;
+    background: rgba(0, 0, 0, 0.06);
 }
 
 /* Responsive */
@@ -572,23 +475,194 @@ onMounted(() => {
     .weather-widget {
         bottom: var(--space-4);
         right: var(--space-4);
-        left: var(--space-4);
     }
 
     .weather-container {
-        width: auto;
-    }
-
-    .weather-icon {
-        font-size: 4rem;
+        width: 260px;
     }
 
     .temp-value {
-        font-size: 3rem;
-    }
-
-    .weather-details {
-        grid-template-columns: repeat(3, 1fr);
+        font-size: 3.5rem;
     }
 }
 </style>
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.settings-content {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(30px) saturate(180%);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 420px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.settings-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-7);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    position: relative;
+}
+
+.settings-header h3 {
+    font-family: var(--font-serif);
+    font-size: 1.8rem;
+    font-weight: 300;
+    color: var(--text-primary);
+    margin: 0;
+    letter-spacing: 0.02em;
+}
+
+.close-btn {
+    position: absolute;
+    top: var(--space-6);
+    right: var(--space-6);
+    background: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: var(--text-secondary);
+}
+
+.close-btn:hover {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.15);
+    transform: rotate(90deg);
+}
+
+.settings-body {
+    padding: var(--space-7);
+}
+
+.input-group {
+    margin-bottom: var(--space-5);
+}
+
+.input-group label {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-3);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.input-group input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    padding: var(--space-4);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+}
+
+.input-group input:focus {
+    outline: none;
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.03);
+}
+
+.input-group input::placeholder {
+    color: var(--text-muted);
+}
+
+.saved-location {
+    padding: var(--space-4);
+    background: rgba(52, 199, 89, 0.08);
+    border: 1px solid rgba(52, 199, 89, 0.2);
+    border-radius: 8px;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+}
+
+.settings-footer {
+    display: flex;
+    gap: var(--space-4);
+    padding: var(--space-7);
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.btn-cancel,
+.btn-save {
+    flex: 1;
+    padding: var(--space-4);
+    border-radius: 8px;
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.btn-cancel {
+    background: rgba(0, 0, 0, 0.04);
+    color: var(--text-secondary);
+}
+
+.btn-cancel:hover {
+    background: rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+}
+
+.btn-save {
+    background: var(--text-primary);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+
