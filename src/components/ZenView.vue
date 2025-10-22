@@ -132,6 +132,8 @@ onMounted(() => {
             delay: 1.2
         })
 
+        // Note: Due soon tasks use CSS animations for scroll unfurl and slide-in effects
+
         // Animate grid lines
         gsap.from('.grid-line', {
             scaleY: 0,

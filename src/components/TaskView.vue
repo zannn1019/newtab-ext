@@ -34,7 +34,7 @@
                         <option value="high">High Priority</option>
                     </select>
                     <input v-model="newTaskDueDate" type="date" class="due-date-input" :min="today" />
-                    <input v-model="newTaskDueTime" type="time" class="due-time-input" :disabled="!newTaskDueDate" />
+                    <input v-model="newTaskDueTime" type="time" class="due-time-input" />
                     <label class="daily-toggle">
                         <input type="checkbox" v-model="newTaskIsDaily" />
                         <span>Daily Task</span>
@@ -82,6 +82,10 @@
                                 <span v-if="task.isDaily" class="daily-badge" :title="`${task.completionCount || 0} times completed`">
                                     <RefreshCw :size="14" :stroke-width="2" />
                                     Daily
+                                </span>
+                                <span v-if="isDueSoon(task)" class="urgent-badge" title="Due within 24 hours">
+                                    <Flame :size="14" :stroke-width="2" />
+                                    Due Soon
                                 </span>
                                 <span v-if="task.dueDate" class="due-date-badge"
                                     :class="{ 'overdue': isOverdue(task) }">
@@ -359,6 +363,17 @@ const isOverdue = (task) => {
     }
 }
 
+const isDueSoon = (task) => {
+    if (!task.dueDate || task.completed || isOverdue(task)) return false
+    const dueDate = new Date(task.dueDate)
+    const now = new Date()
+    const diffMs = dueDate - now
+    const diffHours = diffMs / (1000 * 60 * 60)
+    
+    // Show "Due Soon" if within 24 hours
+    return diffHours <= 24 && diffHours > 0
+}
+
 const formatDate = (dateString) => {
     if (!dateString) return ''
     
@@ -445,6 +460,50 @@ const loadTasks = () => {
     }
 }
 
+// Task due notifications
+const checkTaskNotifications = async () => {
+    const now = new Date()
+    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000)
+
+    for (const task of tasks.value) {
+        if (task.completed || !task.dueDate) continue
+
+        const dueDate = new Date(task.dueDate)
+        const timeDiff = dueDate - now
+        const minutesUntilDue = Math.floor(timeDiff / (1000 * 60))
+
+        // Check if task is due within the next hour and not yet notified
+        if (minutesUntilDue > 0 && minutesUntilDue <= 60 && !task.notified) {
+            task.notified = true
+            saveTasks()
+
+            const timeStr = minutesUntilDue < 60
+                ? `${minutesUntilDue} minutes`
+                : '1 hour'
+
+            await showSuccess(
+                `"${task.title}" is due in ${timeStr}`,
+                'Task Reminder',
+                'タスクリマインダー'
+            )
+            break // Show one notification at a time
+        }
+
+        // Check if task is overdue and not yet notified
+        if (timeDiff < 0 && !task.overdueNotified) {
+            task.overdueNotified = true
+            saveTasks()
+
+            await showSuccess(
+                `"${task.title}" is overdue!`,
+                'Overdue Task',
+                '期限切れタスク'
+            )
+            break
+        }
+    }
+}
+
 // Daily tasks reset
 const checkDailyTasks = () => {
     const today = new Date().toDateString()
@@ -459,6 +518,9 @@ const checkDailyTasks = () => {
                 needsSave = true
             }
             task.lastResetDate = today
+            // Reset notification flags
+            task.notified = false
+            task.overdueNotified = false
         }
     })
 
@@ -472,10 +534,14 @@ const checkDailyTasks = () => {
 onMounted(() => {
     loadTasks()
     checkDailyTasks()
-    
+    checkTaskNotifications() // Check for due tasks on load
+
     // Check daily tasks every minute
     setInterval(checkDailyTasks, 60000)
-    
+
+    // Check for task notifications every 5 minutes
+    setInterval(checkTaskNotifications, 5 * 60 * 1000)
+
     // Focus input after mount
     nextTick(() => {
         if (quickAddInput.value) {
@@ -618,11 +684,6 @@ onMounted(() => {
     transition: all 0.2s ease;
 }
 
-.due-time-input:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
 .daily-toggle {
     display: flex;
     align-items: center;
@@ -655,7 +716,7 @@ onMounted(() => {
 
 .priority-select:hover,
 .due-date-input:hover,
-.due-time-input:hover:not(:disabled) {
+.due-time-input:hover {
     border-color: var(--primary-color);
 }
 
@@ -851,7 +912,8 @@ onMounted(() => {
 
 .due-date-badge,
 .priority-badge,
-.daily-badge {
+.daily-badge,
+.urgent-badge {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -873,6 +935,24 @@ onMounted(() => {
     background: rgba(239, 68, 68, 0.1);
     color: #ef4444;
     border-color: rgba(239, 68, 68, 0.2);
+}
+
+.urgent-badge {
+    background: rgba(251, 146, 60, 0.1);
+    color: #fb923c;
+    border: 1px solid rgba(251, 146, 60, 0.3);
+    animation: pulse-urgent 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-urgent {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.85;
+        transform: scale(1.02);
+    }
 }
 
 .daily-badge {
