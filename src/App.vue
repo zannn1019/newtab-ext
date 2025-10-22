@@ -117,7 +117,7 @@ const animateBranding = () => {
         ease: 'expo.out',
     });
 
-    // Add floating animation loop (faster)
+    // Add floating animation loop (faster) - horizontal movement
     chars.forEach((char, index) => {
         gsap.to(char, {
             x: 10,
@@ -493,14 +493,16 @@ onUnmounted(() => {
     font-family: var(--font-serif);
     font-size: 8rem;
     font-weight: 300;
-    line-height: 1;
+    line-height: 0.85;
     letter-spacing: 0.1em;
     color: var(--text-primary);
+    writing-mode: vertical-rl;
+    text-orientation: upright;
     pointer-events: none;
     z-index: 1;
     user-select: none;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     gap: 0.05em;
     perspective: 1000px;
     transform-style: preserve-3d;
