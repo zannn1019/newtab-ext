@@ -7,11 +7,15 @@
             <!-- Search Container with Japanese Styling -->
             <div class="search-container">
                 <input ref="inputRef" v-model="searchQuery" @keydown="handleKeydown" @focus="isExpanded = true"
-                    @blur="handleBlur" class="command-input" placeholder="Type a command or search..."
+                    @blur="handleBlur" @input="handleInput" class="command-input" placeholder="Type a command or search..."
                     spellcheck="false" />
+                <!-- Autocomplete suggestion -->
+                <div v-if="autocompleteSuggestion" class="autocomplete-suggestion">
+                    {{ searchQuery }}<span class="suggestion-text">{{ autocompleteSuggestion }}</span>
+                </div>
                 <div class="input-underline"></div>
                 <span v-if="!searchQuery" class="search-hint">
-                    <kbd>TAB</kbd> to focus
+                    <kbd>TAB</kbd> to focus • <kbd>→</kbd> to autocomplete
                 </span>
             </div>
 
@@ -97,8 +101,33 @@ const inputRef = ref(null)
 const searchQuery = ref('')
 const isExpanded = ref(false)
 const selectedIndex = ref(0)
+const autocompleteSuggestion = ref('')
+const urlHistory = ref([])
 
 const emit = defineEmits(['navigate', 'search'])
+
+// Load URL history from localStorage
+const loadUrlHistory = () => {
+    const saved = localStorage.getItem('kinesis-url-history')
+    if (saved) {
+        try {
+            urlHistory.value = JSON.parse(saved)
+        } catch (e) {
+            urlHistory.value = []
+        }
+    }
+}
+
+// Save URL to history
+const saveUrlToHistory = (url) => {
+    if (!urlHistory.value.includes(url)) {
+        urlHistory.value.unshift(url)
+        if (urlHistory.value.length > 20) {
+            urlHistory.value = urlHistory.value.slice(0, 20)
+        }
+        localStorage.setItem('kinesis-url-history', JSON.stringify(urlHistory.value))
+    }
+}
 
 // Command Registry - Easy to extend!
 const commands = ref([
@@ -264,6 +293,57 @@ const isURL = (text) => {
            query.includes('.co') || query.includes('.dev')
 }
 
+// Calculate autocomplete suggestion
+const calculateAutocomplete = () => {
+    if (!searchQuery.value || searchQuery.value.length < 2) {
+        autocompleteSuggestion.value = ''
+        return
+    }
+
+    const query = searchQuery.value.toLowerCase()
+
+    // Try to match commands first
+    const matchingCommand = filteredCommands.value[0]
+    if (matchingCommand && filteredCommands.value.length > 0) {
+        const commandName = matchingCommand.name.toLowerCase()
+        if (commandName.startsWith(query)) {
+            autocompleteSuggestion.value = matchingCommand.name.substring(query.length)
+            return
+        }
+    }
+
+    // Try to match URL history
+    const matchingUrl = urlHistory.value.find(url => 
+        url.toLowerCase().startsWith(query)
+    )
+    if (matchingUrl) {
+        autocompleteSuggestion.value = matchingUrl.substring(query.length)
+        return
+    }
+
+    // Common domain suggestions
+    const commonDomains = [
+        'google.com', 'youtube.com', 'github.com', 'twitter.com',
+        'facebook.com', 'reddit.com', 'stackoverflow.com', 'medium.com',
+        'linkedin.com', 'instagram.com', 'amazon.com', 'netflix.com'
+    ]
+    
+    const matchingDomain = commonDomains.find(domain => 
+        domain.startsWith(query)
+    )
+    if (matchingDomain) {
+        autocompleteSuggestion.value = matchingDomain.substring(query.length)
+        return
+    }
+
+    autocompleteSuggestion.value = ''
+}
+
+// Handle input change
+const handleInput = () => {
+    calculateAutocomplete()
+}
+
 // Execute command
 const executeCommand = (command) => {
     command.action()
@@ -292,9 +372,19 @@ const handleBlur = () => {
 
 // Keyboard handling
 const handleKeydown = (e) => {
+    // Right Arrow or Tab - accept autocomplete
+    if ((e.key === 'ArrowRight' || e.key === 'Tab') && autocompleteSuggestion.value) {
+        e.preventDefault()
+        searchQuery.value = searchQuery.value + autocompleteSuggestion.value
+        autocompleteSuggestion.value = ''
+        calculateAutocomplete()
+        return
+    }
+
     // Escape - close
     if (e.key === 'Escape') {
         searchQuery.value = ''
+        autocompleteSuggestion.value = ''
         isExpanded.value = false
         inputRef.value?.blur()
         return
@@ -329,6 +419,9 @@ const handleKeydown = (e) => {
                          query.includes('.co') || query.includes('.dev')
             
             if (isURL) {
+                // Save to history
+                saveUrlToHistory(query)
+                
                 // Navigate to the URL
                 let url = query
                 if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -354,6 +447,7 @@ const handleGlobalKeydown = (e) => {
 }
 
 onMounted(() => {
+    loadUrlHistory()
     document.addEventListener('keydown', handleGlobalKeydown)
 
     nextTick(() => {
@@ -462,6 +556,28 @@ onUnmounted(() => {
     padding: var(--space-3) 0;
     outline: none;
     transition: all 0.4s var(--ease);
+    position: relative;
+    z-index: 2;
+}
+
+/* Autocomplete Suggestion */
+.autocomplete-suggestion {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.1rem;
+    font-weight: 400;
+    letter-spacing: 0.03em;
+    padding: var(--space-3) 0;
+    color: transparent;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.suggestion-text {
+    color: var(--text-muted);
+    opacity: 0.4;
 }
 
 .command-input::placeholder {
