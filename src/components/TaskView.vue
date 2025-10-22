@@ -1,6 +1,5 @@
 <template>
     <div class="task-view" data-stagger>
-        <!-- Header Section -->
         <div class="task-header" data-stagger>
             <div class="header-content">
                 <h1 class="task-title">Task Management</h1>
@@ -25,28 +24,16 @@
         <!-- Quick Add Section -->
         <div class="quick-add-section" data-stagger>
             <div class="quick-add-container">
-                <input 
-                    ref="quickAddInput"
-                    v-model="newTaskTitle" 
-                    @keydown.enter="addTask"
-                    @focus="isAddFocused = true"
-                    @blur="isAddFocused = false"
-                    class="quick-add-input" 
-                    placeholder="What needs to be done?"
-                    type="text"
-                />
+                <input ref="quickAddInput" v-model="newTaskTitle" @keydown.enter="addTask" @focus="isAddFocused = true"
+                    @blur="isAddFocused = false" class="quick-add-input" placeholder="What needs to be done?"
+                    type="text" />
                 <div class="quick-add-options" :class="{ 'options-visible': isAddFocused || newTaskTitle }">
                     <select v-model="newTaskPriority" class="priority-select">
                         <option value="low">Low Priority</option>
                         <option value="medium">Medium Priority</option>
                         <option value="high">High Priority</option>
                     </select>
-                    <input 
-                        v-model="newTaskDueDate" 
-                        type="date" 
-                        class="due-date-input"
-                        :min="today"
-                    />
+                    <input v-model="newTaskDueDate" type="date" class="due-date-input" :min="today" />
                     <button @click="addTask" class="btn-add-task" :disabled="!newTaskTitle.trim()">
                         <Plus :size="20" :stroke-width="2" />
                         Add Task
@@ -57,13 +44,8 @@
 
         <!-- Filter Tabs -->
         <div class="filter-tabs" data-stagger>
-            <button 
-                v-for="filter in filters" 
-                :key="filter.value"
-                @click="currentFilter = filter.value"
-                class="filter-tab"
-                :class="{ 'active': currentFilter === filter.value }"
-            >
+            <button v-for="filter in filters" :key="filter.value" @click="currentFilter = filter.value"
+                class="filter-tab" :class="{ 'active': currentFilter === filter.value }">
                 <component :is="filter.icon" :size="18" :stroke-width="2" />
                 {{ filter.label }}
                 <span class="filter-count">{{ getFilterCount(filter.value) }}</span>
@@ -73,26 +55,14 @@
         <!-- Tasks List -->
         <div class="tasks-container" data-stagger>
             <TransitionGroup name="task" tag="div" class="tasks-list">
-                <div 
-                    v-for="task in filteredTasks" 
-                    :key="task.id"
-                    class="task-item"
-                    :class="[
+                <div v-for="task in filteredTasks" :key="task.id" class="task-item" :class="[
                         `priority-${task.priority}`,
                         { 'completed': task.completed, 'overdue': isOverdue(task) }
-                    ]"
-                    @mouseenter="hoveredTask = task.id"
-                    @mouseleave="hoveredTask = null"
-                >
+                    ]" @mouseenter="hoveredTask = task.id" @mouseleave="hoveredTask = null">
                     <!-- Checkbox -->
                     <div class="task-checkbox-wrapper">
-                        <input 
-                            type="checkbox" 
-                            :id="`task-${task.id}`"
-                            v-model="task.completed"
-                            @change="toggleTask(task)"
-                            class="task-checkbox"
-                        />
+                        <input type="checkbox" :id="`task-${task.id}`" v-model="task.completed"
+                            @change="toggleTask(task)" class="task-checkbox" />
                         <label :for="`task-${task.id}`" class="checkbox-label">
                             <CheckCircle2 v-if="task.completed" :size="24" :stroke-width="2" />
                             <Circle v-else :size="24" :stroke-width="2" />
@@ -104,7 +74,8 @@
                         <div class="task-title-row">
                             <span class="task-title-text">{{ task.title }}</span>
                             <div class="task-badges">
-                                <span v-if="task.dueDate" class="due-date-badge" :class="{ 'overdue': isOverdue(task) }">
+                                <span v-if="task.dueDate" class="due-date-badge"
+                                    :class="{ 'overdue': isOverdue(task) }">
                                     <Calendar :size="14" :stroke-width="2" />
                                     {{ formatDate(task.dueDate) }}
                                 </span>
@@ -420,10 +391,10 @@ onMounted(() => {
 .task-view {
     max-width: 1200px;
     margin: 0 auto;
-    padding: var(--space-8) var(--space-6);
+    padding: 120px var(--space-6) var(--space-8);
     min-height: 100vh;
     position: relative;
-        z-index: 1;
+    z-index: 1;
 }
 
 /* Header */
@@ -899,7 +870,7 @@ onMounted(() => {
 /* Responsive */
 @media (max-width: 768px) {
     .task-view {
-        padding: var(--space-6) var(--space-4);
+        padding: 100px var(--space-4) var(--space-6);
     }
 
     .task-header {
