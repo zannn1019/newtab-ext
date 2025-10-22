@@ -100,6 +100,20 @@
                     <h3 class="panel-title">Trade History</h3>
                     <p class="panel-subtitle">取引履歴</p>
                     <div class="filter-controls">
+                        <button 
+                            class="view-toggle" 
+                            :class="{ 'active': viewMode === 'list' }"
+                            @click="viewMode = 'list'"
+                            title="List View">
+                            <List :size="18" :stroke-width="2" />
+                        </button>
+                        <button 
+                            class="view-toggle" 
+                            :class="{ 'active': viewMode === 'calendar' }"
+                            @click="viewMode = 'calendar'"
+                            title="Calendar View">
+                            <Calendar :size="18" :stroke-width="2" />
+                        </button>
                         <select v-model="filterSymbol" class="filter-select">
                             <option value="all">All Symbols</option>
                             <option v-for="symbol in uniqueSymbols" :key="symbol" :value="symbol">
@@ -109,7 +123,8 @@
                     </div>
                 </div>
 
-                <div class="trades-list" ref="tradesListRef">
+                <!-- List View -->
+                <div v-if="viewMode === 'list'" class="trades-list" ref="tradesListRef">
                     <div v-for="(trade, index) in filteredTrades" :key="trade.id" class="trade-item"
                         :data-trade-index="index" @click="openTradeDetail(trade)">
                         <div class="trade-symbol">
@@ -126,6 +141,49 @@
                             </div>
                         </div>
                         <div class="trade-arrow">→</div>
+                    </div>
+                </div>
+
+                <!-- Calendar View -->
+                <div v-else class="calendar-view" ref="calendarViewRef">
+                    <div class="calendar-header">
+                        <button class="calendar-nav" @click="changeMonth(-1)">‹</button>
+                        <div class="calendar-title">
+                            <div class="month-year">{{ currentMonthYear }}</div>
+                            <div class="month-stats">
+                                <span :class="monthPnLClass">{{ formatCurrency(currentMonthPnL) }}</span>
+                                <span class="trades-count">{{ currentMonthTrades }} trades</span>
+                            </div>
+                        </div>
+                        <button class="calendar-nav" @click="changeMonth(1)">›</button>
+                    </div>
+
+                    <div class="calendar-grid">
+                        <div class="calendar-weekdays">
+                            <div class="weekday" v-for="day in weekdays" :key="day">{{ day }}</div>
+                        </div>
+                        <div class="calendar-days">
+                            <div 
+                                v-for="day in calendarDays" 
+                                :key="day.key"
+                                class="calendar-day"
+                                :class="{
+                                    'other-month': !day.isCurrentMonth,
+                                    'today': day.isToday,
+                                    'has-trades': day.hasTrades,
+                                    'profit': day.pnl > 0,
+                                    'loss': day.pnl < 0
+                                }"
+                                @click="selectDay(day)">
+                                <div class="day-number">{{ day.date }}</div>
+                                <div v-if="day.hasTrades" class="day-pnl">
+                                    {{ formatCurrency(day.pnl) }}
+                                </div>
+                                <div v-if="day.hasTrades" class="day-trades">
+                                    {{ day.tradesCount }} trades
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -266,7 +324,7 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import gsap from 'gsap'
 import { fetchMyTrades, fetchAllTrades, testConnection, validateApiKey, validateApiSecret, parseError } from '../utils/binanceApi'
 import { useKinesisAlert } from '../composables/useKinesisAlert'
-import { Settings, RefreshCw, BarChart3 } from 'lucide-vue-next'
+import { Settings, RefreshCw, BarChart3, Calendar, List } from 'lucide-vue-next'
 
 // Alert composable
 const {
@@ -283,6 +341,9 @@ const syncDetail = ref('')
 const showConfig = ref(false)
 const selectedTrade = ref(null)
 const filterSymbol = ref('all')
+const viewMode = ref('list') // 'list' or 'calendar'
+const currentMonth = ref(new Date())
+const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 // Refs for GSAP
 const progressBarRef = ref(null)
@@ -329,6 +390,108 @@ const filteredTrades = computed(() => {
         return trades.value
     }
     return trades.value.filter(t => t.symbol === filterSymbol.value)
+})
+
+// Calendar computed properties
+const currentMonthYear = computed(() => {
+    return currentMonth.value.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+})
+
+const currentMonthPnL = computed(() => {
+    const month = currentMonth.value.getMonth()
+    const year = currentMonth.value.getFullYear()
+    
+    return filteredTrades.value
+        .filter(trade => {
+            const tradeDate = new Date(trade.exitTime)
+            return tradeDate.getMonth() === month && tradeDate.getFullYear() === year
+        })
+        .reduce((sum, trade) => sum + trade.pnl, 0)
+})
+
+const currentMonthTrades = computed(() => {
+    const month = currentMonth.value.getMonth()
+    const year = currentMonth.value.getFullYear()
+    
+    return filteredTrades.value.filter(trade => {
+        const tradeDate = new Date(trade.exitTime)
+        return tradeDate.getMonth() === month && tradeDate.getFullYear() === year
+    }).length
+})
+
+const monthPnLClass = computed(() => {
+    const pnl = currentMonthPnL.value
+    if (pnl > 0) return 'positive'
+    if (pnl < 0) return 'negative'
+    return 'neutral'
+})
+
+const calendarDays = computed(() => {
+    const year = currentMonth.value.getFullYear()
+    const month = currentMonth.value.getMonth()
+    
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    const daysInMonth = lastDay.getDate()
+    const startingDayOfWeek = firstDay.getDay()
+    
+    const days = []
+    
+    // Previous month days
+    const prevMonthLastDay = new Date(year, month, 0).getDate()
+    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+        days.push({
+            key: `prev-${prevMonthLastDay - i}`,
+            date: prevMonthLastDay - i,
+            isCurrentMonth: false,
+            isToday: false,
+            hasTrades: false,
+            pnl: 0,
+            tradesCount: 0
+        })
+    }
+    
+    // Current month days
+    const today = new Date()
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day)
+        const dayTrades = filteredTrades.value.filter(trade => {
+            const tradeDate = new Date(trade.exitTime)
+            return tradeDate.getFullYear() === year &&
+                   tradeDate.getMonth() === month &&
+                   tradeDate.getDate() === day
+        })
+        
+        const dayPnL = dayTrades.reduce((sum, trade) => sum + trade.pnl, 0)
+        
+        days.push({
+            key: `current-${day}`,
+            date: day,
+            fullDate: date,
+            isCurrentMonth: true,
+            isToday: date.toDateString() === today.toDateString(),
+            hasTrades: dayTrades.length > 0,
+            pnl: dayPnL,
+            tradesCount: dayTrades.length,
+            trades: dayTrades
+        })
+    }
+    
+    // Next month days
+    const remainingDays = 42 - days.length // 6 rows x 7 days
+    for (let day = 1; day <= remainingDays; day++) {
+        days.push({
+            key: `next-${day}`,
+            date: day,
+            isCurrentMonth: false,
+            isToday: false,
+            hasTrades: false,
+            pnl: 0,
+            tradesCount: 0
+        })
+    }
+    
+    return days
 })
 
 // Watch trades for debugging
@@ -828,6 +991,22 @@ const calculateAnalytics = (closedTrades) => {
         avgLoss,
         profitFactor,
         bestTrade
+    }
+}
+
+// Calendar methods
+const changeMonth = (delta) => {
+    const newDate = new Date(currentMonth.value)
+    newDate.setMonth(newDate.getMonth() + delta)
+    currentMonth.value = newDate
+}
+
+const selectDay = (day) => {
+    if (!day.isCurrentMonth || !day.hasTrades) return
+    
+    // Show trades for selected day
+    if (day.trades && day.trades.length > 0) {
+        openTradeDetail(day.trades[0])
     }
 }
 

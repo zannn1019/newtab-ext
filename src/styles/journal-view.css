@@ -331,6 +331,33 @@
   position: absolute;
   top: 0;
   right: 0;
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.view-toggle {
+  padding: var(--space-2);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.view-toggle:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.view-toggle.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
 }
 
 .filter-select {
@@ -808,6 +835,185 @@
 .detail-panel::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: 3px;
+}
+
+/* ============================================
+   CALENDAR VIEW
+   ============================================ */
+
+.calendar-view {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.calendar-nav {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: var(--space-2) var(--space-3);
+  font-size: 1.2rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.calendar-nav:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.calendar-title {
+  flex: 1;
+  text-align: center;
+}
+
+.month-year {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+  letter-spacing: 0.05em;
+}
+
+.month-stats {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: center;
+  font-size: 0.875rem;
+}
+
+.month-stats .positive {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.month-stats .negative {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.month-stats .neutral {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.month-stats .trades-count {
+  color: var(--text-muted);
+}
+
+.calendar-grid {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: var(--space-4);
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.weekday {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-2);
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-2);
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: var(--bg-primary);
+  position: relative;
+}
+
+.calendar-day.other-month {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.calendar-day.today {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.calendar-day.has-trades {
+  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+}
+
+.calendar-day.has-trades:hover:not(.other-month) {
+  transform: scale(1.05);
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.calendar-day.profit {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%);
+}
+
+.calendar-day.loss {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+}
+
+.day-number {
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.calendar-day.other-month .day-number {
+  color: var(--text-muted);
+}
+
+.day-pnl {
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.calendar-day.profit .day-pnl {
+  color: #22c55e;
+}
+
+.calendar-day.loss .day-pnl {
+  color: #ef4444;
+}
+
+.day-trades {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 /* ============================================
