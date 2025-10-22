@@ -422,6 +422,8 @@ onMounted(() => {
     margin: 0 auto;
     padding: var(--space-8) var(--space-6);
     min-height: 100vh;
+    position: relative;
+        z-index: 1;
 }
 
 /* Header */

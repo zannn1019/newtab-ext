@@ -131,7 +131,7 @@ onMounted(() => {
     width: 100%;
     height: 100%;
     pointer-events: none;
-    z-index: 9999;
+    z-index: 10001;
 }
 
 .custom-cursor {
