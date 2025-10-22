@@ -34,6 +34,10 @@
                         <option value="high">High Priority</option>
                     </select>
                     <input v-model="newTaskDueDate" type="date" class="due-date-input" :min="today" />
+                    <label class="daily-toggle">
+                        <input type="checkbox" v-model="newTaskIsDaily" />
+                        <span>Daily Task</span>
+                    </label>
                     <button @click="addTask" class="btn-add-task" :disabled="!newTaskTitle.trim()">
                         <Plus :size="20" :stroke-width="2" />
                         Add Task
@@ -74,6 +78,10 @@
                         <div class="task-title-row">
                             <span class="task-title-text">{{ task.title }}</span>
                             <div class="task-badges">
+                                <span v-if="task.isDaily" class="daily-badge" :title="`${task.completionCount || 0} times completed`">
+                                    <RefreshCw :size="14" :stroke-width="2" />
+                                    Daily
+                                </span>
                                 <span v-if="task.dueDate" class="due-date-badge"
                                     :class="{ 'overdue': isOverdue(task) }">
                                     <Calendar :size="14" :stroke-width="2" />
@@ -123,7 +131,7 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
-import { Plus, Circle, CheckCircle2, Calendar, Trash2, Archive, ListTodo, Clock, CheckCheck, Flame } from 'lucide-vue-next'
+import { Plus, Circle, CheckCircle2, Calendar, Trash2, Archive, ListTodo, Clock, CheckCheck, Flame, RefreshCw } from 'lucide-vue-next'
 import { useKinesisAlert } from '../composables/useKinesisAlert'
 import gsap from 'gsap'
 
@@ -134,6 +142,7 @@ const tasks = ref([])
 const newTaskTitle = ref('')
 const newTaskPriority = ref('medium')
 const newTaskDueDate = ref('')
+const newTaskIsDaily = ref(false)
 const currentFilter = ref('all')
 const isAddFocused = ref(false)
 const hoveredTask = ref(null)
@@ -215,9 +224,12 @@ const addTask = async () => {
         title: newTaskTitle.value.trim(),
         priority: newTaskPriority.value,
         dueDate: newTaskDueDate.value || null,
+        isDaily: newTaskIsDaily.value,
         completed: false,
         createdAt: new Date().toISOString(),
-        completedAt: null
+        completedAt: null,
+        completionCount: 0,
+        lastResetDate: new Date().toDateString()
     }
 
     tasks.value.unshift(task)
@@ -227,6 +239,7 @@ const addTask = async () => {
     newTaskTitle.value = ''
     newTaskPriority.value = 'medium'
     newTaskDueDate.value = ''
+    newTaskIsDaily.value = false
 
     // Animate the new task
     await nextTick()
@@ -246,6 +259,12 @@ const addTask = async () => {
 
 const toggleTask = async (task) => {
     task.completedAt = task.completed ? new Date().toISOString() : null
+    
+    // For daily tasks, increment completion count
+    if (task.completed && task.isDaily) {
+        task.completionCount = (task.completionCount || 0) + 1
+    }
+    
     saveTasks()
 
     if (task.completed) {
@@ -259,8 +278,12 @@ const toggleTask = async (task) => {
             ease: 'power2.inOut'
         })
 
+        const message = task.isDaily 
+            ? `"${task.title}" completed! ${task.completionCount}x streak 🔥`
+            : `"${task.title}" marked as complete!`
+
         await showSuccess(
-            `"${task.title}" marked as complete!`,
+            message,
             'Task Completed',
             'タスク完了'
         )
@@ -374,9 +397,36 @@ const loadTasks = () => {
     }
 }
 
+// Daily tasks reset
+const checkDailyTasks = () => {
+    const today = new Date().toDateString()
+    let needsSave = false
+
+    tasks.value.forEach(task => {
+        if (task.isDaily && task.lastResetDate !== today) {
+            // Reset daily task
+            if (task.completed) {
+                task.completed = false
+                task.completedAt = null
+                needsSave = true
+            }
+            task.lastResetDate = today
+        }
+    })
+
+    if (needsSave) {
+        saveTasks()
+        console.log('Daily tasks reset for new day')
+    }
+}
+
 // Lifecycle
 onMounted(() => {
     loadTasks()
+    checkDailyTasks()
+    
+    // Check daily tasks every minute
+    setInterval(checkDailyTasks, 60000)
     
     // Focus input after mount
     nextTick(() => {
@@ -517,6 +567,36 @@ onMounted(() => {
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s ease;
+}
+
+.daily-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.daily-toggle:hover {
+    border-color: var(--primary-color);
+    background: rgba(139, 92, 246, 0.05);
+}
+
+.daily-toggle input[type="checkbox"] {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.daily-toggle span {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    white-space: nowrap;
 }
 
 .priority-select:hover,
@@ -715,7 +795,8 @@ onMounted(() => {
 }
 
 .due-date-badge,
-.priority-badge {
+.priority-badge,
+.daily-badge {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -737,6 +818,22 @@ onMounted(() => {
     background: rgba(239, 68, 68, 0.1);
     color: #ef4444;
     border-color: rgba(239, 68, 68, 0.2);
+}
+
+.daily-badge {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+@keyframes pulse-subtle {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
 }
 
 .priority-badge.priority-high {
