@@ -6,7 +6,7 @@
   "chrome_url_overrides": {
     "newtab": "index.html"
   },
-  "permissions": ["storage"],
+  "permissions": ["storage", "history"],
   "host_permissions": [
     "https://api.coingecko.com/*",
     "https://api.binance.com/*",

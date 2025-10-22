@@ -103,29 +103,76 @@ const isExpanded = ref(false)
 const selectedIndex = ref(0)
 const autocompleteSuggestion = ref('')
 const urlHistory = ref([])
+const searchHistory = ref([])
+const browserHistory = ref([])
 
 const emit = defineEmits(['navigate', 'search'])
 
-// Load URL history from localStorage
-const loadUrlHistory = () => {
-    const saved = localStorage.getItem('kinesis-url-history')
-    if (saved) {
+// Load search and URL history from localStorage
+const loadHistory = () => {
+    // Load URL history
+    const savedUrls = localStorage.getItem('kinesis-url-history')
+    if (savedUrls) {
         try {
-            urlHistory.value = JSON.parse(saved)
+            urlHistory.value = JSON.parse(savedUrls)
         } catch (e) {
             urlHistory.value = []
+        }
+    }
+
+    // Load search history
+    const savedSearches = localStorage.getItem('kinesis-search-history')
+    if (savedSearches) {
+        try {
+            searchHistory.value = JSON.parse(savedSearches)
+        } catch (e) {
+            searchHistory.value = []
         }
     }
 }
 
 // Save URL to history
 const saveUrlToHistory = (url) => {
-    if (!urlHistory.value.includes(url)) {
-        urlHistory.value.unshift(url)
-        if (urlHistory.value.length > 20) {
-            urlHistory.value = urlHistory.value.slice(0, 20)
+    // Remove if exists (to move to front)
+    urlHistory.value = urlHistory.value.filter(u => u !== url)
+    urlHistory.value.unshift(url)
+    
+    if (urlHistory.value.length > 50) {
+        urlHistory.value = urlHistory.value.slice(0, 50)
+    }
+    localStorage.setItem('kinesis-url-history', JSON.stringify(urlHistory.value))
+}
+
+// Save search to history
+const saveSearchToHistory = (search) => {
+    // Remove if exists (to move to front)
+    searchHistory.value = searchHistory.value.filter(s => s !== search)
+    searchHistory.value.unshift(search)
+    
+    if (searchHistory.value.length > 50) {
+        searchHistory.value = searchHistory.value.slice(0, 50)
+    }
+    localStorage.setItem('kinesis-search-history', JSON.stringify(searchHistory.value))
+}
+
+// Get browser history (Chrome extension API if available)
+const loadBrowserHistory = async () => {
+    if (typeof chrome !== 'undefined' && chrome.history) {
+        try {
+            const results = await chrome.history.search({
+                text: '',
+                maxResults: 100,
+                startTime: Date.now() - (7 * 24 * 60 * 60 * 1000) // Last 7 days
+            })
+            browserHistory.value = results.map(item => ({
+                url: item.url,
+                title: item.title,
+                visitCount: item.visitCount,
+                lastVisitTime: item.lastVisitTime
+            }))
+        } catch (error) {
+            console.log('Browser history not available')
         }
-        localStorage.setItem('kinesis-url-history', JSON.stringify(urlHistory.value))
     }
 }
 
@@ -293,16 +340,16 @@ const isURL = (text) => {
            query.includes('.co') || query.includes('.dev')
 }
 
-// Calculate autocomplete suggestion
+// Chrome-like autocomplete with history integration
 const calculateAutocomplete = () => {
-    if (!searchQuery.value || searchQuery.value.length < 2) {
+    if (!searchQuery.value || searchQuery.value.length < 1) {
         autocompleteSuggestion.value = ''
         return
     }
 
     const query = searchQuery.value.toLowerCase()
 
-    // Try to match commands first
+    // Priority 1: Command names (instant, highest priority)
     const matchingCommand = filteredCommands.value[0]
     if (matchingCommand && filteredCommands.value.length > 0) {
         const commandName = matchingCommand.name.toLowerCase()
@@ -312,7 +359,38 @@ const calculateAutocomplete = () => {
         }
     }
 
-    // Try to match URL history
+    // Priority 2: Browser history (most relevant - actual visited sites)
+    if (browserHistory.value.length > 0) {
+        // Sort by visit count and recency
+        const sortedHistory = [...browserHistory.value].sort((a, b) => {
+            return (b.visitCount * 10 + b.lastVisitTime / 1000000) - 
+                   (a.visitCount * 10 + a.lastVisitTime / 1000000)
+        })
+
+        for (const item of sortedHistory) {
+            try {
+                const url = new URL(item.url)
+                const domain = url.hostname.replace('www.', '')
+                const fullUrl = url.hostname + url.pathname
+                
+                // Match against domain or full URL
+                if (domain.startsWith(query) || fullUrl.startsWith(query)) {
+                    autocompleteSuggestion.value = domain.substring(query.length)
+                    return
+                }
+
+                // Match against title
+                if (item.title && item.title.toLowerCase().includes(query)) {
+                    autocompleteSuggestion.value = ' - ' + item.title.substring(0, 30)
+                    return
+                }
+            } catch (e) {
+                // Skip invalid URLs
+            }
+        }
+    }
+
+    // Priority 3: Local URL history
     const matchingUrl = urlHistory.value.find(url => 
         url.toLowerCase().startsWith(query)
     )
@@ -321,11 +399,21 @@ const calculateAutocomplete = () => {
         return
     }
 
-    // Common domain suggestions
+    // Priority 4: Search history
+    const matchingSearch = searchHistory.value.find(search =>
+        search.toLowerCase().startsWith(query)
+    )
+    if (matchingSearch) {
+        autocompleteSuggestion.value = matchingSearch.substring(query.length)
+        return
+    }
+
+    // Priority 5: Common domains
     const commonDomains = [
         'google.com', 'youtube.com', 'github.com', 'twitter.com',
         'facebook.com', 'reddit.com', 'stackoverflow.com', 'medium.com',
-        'linkedin.com', 'instagram.com', 'amazon.com', 'netflix.com'
+        'linkedin.com', 'instagram.com', 'amazon.com', 'netflix.com',
+        'wikipedia.org', 'gmail.com', 'drive.google.com', 'docs.google.com'
     ]
     
     const matchingDomain = commonDomains.find(domain => 
@@ -412,14 +500,14 @@ const handleKeydown = (e) => {
             const query = searchQuery.value.trim()
             
             // Check if it's a URL or domain
-            const isURL = /^(https?:\/\/)/.test(query) || 
+            const isURLQuery = /^(https?:\/\/)/.test(query) || 
                          /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(query) ||
                          query.includes('.com') || query.includes('.org') || 
                          query.includes('.net') || query.includes('.io') ||
                          query.includes('.co') || query.includes('.dev')
             
-            if (isURL) {
-                // Save to history
+            if (isURLQuery) {
+                // Save to URL history
                 saveUrlToHistory(query)
                 
                 // Navigate to the URL
@@ -429,6 +517,9 @@ const handleKeydown = (e) => {
                 }
                 window.location.href = url
             } else {
+                // Save to search history
+                saveSearchToHistory(query)
+                
                 // Search on Google
                 window.location.href = `https://www.google.com/search?q=${encodeURIComponent(query)}`
             }
@@ -447,7 +538,8 @@ const handleGlobalKeydown = (e) => {
 }
 
 onMounted(() => {
-    loadUrlHistory()
+    loadHistory()
+    loadBrowserHistory()
     document.addEventListener('keydown', handleGlobalKeydown)
 
     nextTick(() => {
