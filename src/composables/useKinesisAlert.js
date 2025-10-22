@@ -138,53 +138,6 @@ export const useKinesisAlert = () => {
     });
   };
 
-  // Pro upgrade specific alert
-  const upgradePrompt = () => {
-    return showAlert({
-      type: "warning",
-      title: "Upgrade to Pro",
-      japaneseTitle: "プロにアップグレード",
-      message:
-        "Free tier is limited to 3 trading pairs. Upgrade to Pro for unlimited pairs and advanced features!",
-      confirmText: "Upgrade Now",
-      cancelText: "Maybe Later",
-    });
-  };
-
-  // License activation alerts
-  const licenseSuccess = () => {
-    return showAlert({
-      type: "success",
-      title: "Pro Activated",
-      japaneseTitle: "プロ版有効化",
-      message:
-        "You now have unlimited trading pairs and access to all Pro features!",
-      confirmText: "Awesome!",
-      autoClose: 3000,
-    });
-  };
-
-  const licenseError = () => {
-    return showAlert({
-      type: "error",
-      title: "Invalid License",
-      japaneseTitle: "無効なライセンス",
-      message:
-        "The license key you entered is invalid. Please check and try again.",
-      confirmText: "OK",
-    });
-  };
-
-  const licenseEmpty = () => {
-    return showAlert({
-      type: "warning",
-      title: "License Key Required",
-      japaneseTitle: "ライセンスキーが必要",
-      message: "Please enter your license key to activate Pro features.",
-      confirmText: "OK",
-    });
-  };
-
   return {
     showAlert,
     success,
@@ -192,9 +145,5 @@ export const useKinesisAlert = () => {
     warning,
     info,
     confirm,
-    upgradePrompt,
-    licenseSuccess,
-    licenseError,
-    licenseEmpty,
   };
 };

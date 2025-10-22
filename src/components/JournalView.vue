@@ -36,16 +36,6 @@
 
         <!-- Main Journal Dashboard -->
         <div v-else class="journal-dashboard">
-            <!-- Free Tier Banner -->
-            <div v-if="!isPro" class="free-tier-banner">
-                <span class="banner-text">
-                    🆓 Free Tier - Limited to {{ symbolsList.length }}/3 trading pairs
-                </span>
-                <button class="banner-upgrade-btn" @click="showConfig = true">
-                    ✨ Upgrade to Pro
-                </button>
-            </div>
-
             <!-- Summary Panel (Left) -->
             <div class="summary-panel" ref="summaryPanelRef">
                 <div class="panel-header">
@@ -234,48 +224,8 @@
                         <div class="form-hint">Select which market you trade on. Futures is for leveraged trading.</div>
                     </div>
 
-                    <!-- Pro License Section -->
-                    <div class="form-group license-section">
-                        <label class="license-label">
-                            <span>License Status</span>
-                            <span v-if="isPro" class="badge-pro">✨ PRO</span>
-                            <span v-else class="badge-free">🆓 FREE</span>
-                        </label>
-
-                        <div v-if="!isPro" class="license-input-group">
-                            <input v-model="licenseKey" type="text" placeholder="Enter your Pro license key"
-                                class="license-input" :disabled="isValidatingLicense" />
-                            <button type="button" @click="validateLicense" class="btn-activate"
-                                :disabled="isValidatingLicense">
-                                {{ isValidatingLicense ? 'Checking...' : 'Activate' }}
-                            </button>
-                        </div>
-
-                        <div v-if="isPro" class="license-active">
-                            <div class="license-status">
-                                ✅ Pro features unlocked!
-                            </div>
-                        </div>
-
-                        <div v-if="!isPro" class="license-info">
-                            <div class="upgrade-banner">
-                                <strong>🚀 Upgrade to Pro - $9.99 lifetime!</strong>
-                                <ul class="pro-features">
-                                    <li>✅ Unlimited trading pairs</li>
-                                    <li>✅ Advanced analytics</li>
-                                    <li>✅ Export to CSV</li>
-                                    <li>✅ Extended history</li>
-                                </ul>
-                                <a href="#" class="btn-get-pro" target="_blank">Get Pro License</a>
-                            </div>
-                            <div class="form-hint">
-                                Free tier: Limited to 3 trading pairs
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="form-group">
-                        <label>Trading Pairs to Track {{ !isPro ? '(Max 3 on Free)' : '' }}</label>
+                        <label>Trading Pairs to Track</label>
                         <div class="symbols-list">
                             <div v-for="(symbol, index) in symbolsList" :key="index" class="symbol-item">
                                 <input v-model="symbolsList[index]" type="text" placeholder="BTCUSDT"
@@ -317,10 +267,6 @@ import { useKinesisAlert } from '../composables/useKinesisAlert'
 
 // Alert composable
 const {
-    upgradePrompt,
-    licenseSuccess,
-    licenseError,
-    licenseEmpty,
     confirm,
     error: showError,
     success: showSuccess
@@ -354,11 +300,6 @@ const config = ref({
 
 // Symbols list for UI
 const symbolsList = ref(['BTCUSDT', 'ETHUSDT', 'BNBUSDT'])
-
-// License/Pro features
-const licenseKey = ref('')
-const isPro = ref(false)
-const isValidatingLicense = ref(false)
 
 // Data
 const trades = ref([])
@@ -434,61 +375,8 @@ const loadSavedData = () => {
     }
 }
 
-// License validation
-const validateLicense = async () => {
-    if (!licenseKey.value.trim()) {
-        await licenseEmpty()
-        return
-    }
-
-    isValidatingLicense.value = true
-
-    try {
-        // For demo: Simple validation (you'll replace with Gumroad API)
-        // In production, use Gumroad API: https://api.gumroad.com/v2/licenses/verify
-
-        // Demo validation (accepts any key starting with "PRO-")
-        const isValid = licenseKey.value.trim().toUpperCase().startsWith('PRO-')
-
-        if (isValid) {
-            isPro.value = true
-            localStorage.setItem('kinesis-license', licenseKey.value.trim())
-            await licenseSuccess()
-        } else {
-            await licenseError()
-        }
-    } catch (error) {
-        console.error('License validation error:', error)
-        await showError('Could not validate license. Please try again.', 'Validation Failed', '検証失敗')
-    } finally {
-        isValidatingLicense.value = false
-    }
-}
-
-const checkSavedLicense = () => {
-    const savedLicense = localStorage.getItem('kinesis-license')
-    if (savedLicense) {
-        licenseKey.value = savedLicense
-        // Auto-validate on load
-        const isValid = savedLicense.toUpperCase().startsWith('PRO-')
-        if (isValid) {
-            isPro.value = true
-            console.log('✅ Pro license active')
-        }
-    }
-}
-
 // Symbol management
 const addSymbol = async () => {
-    // Free tier limit: 3 symbols
-    if (!isPro.value && symbolsList.value.length >= 3) {
-        const shouldUpgrade = await upgradePrompt()
-        if (shouldUpgrade) {
-            showConfig.value = true
-        }
-        return
-    }
-
     symbolsList.value.push('')
 }
 
@@ -1075,7 +963,6 @@ const getPnLClass = (pnl) => {
 }
 
 onMounted(() => {
-    checkSavedLicense()
     loadSavedData()
 })
 </script>
