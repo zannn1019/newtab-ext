@@ -6,7 +6,9 @@
         <!-- Sync/Loading Overlay -->
         <div v-if="isSyncing" class="sync-overlay">
             <div class="sync-container">
-                <div class="sync-icon">📊</div>
+                <div class="sync-icon">
+                    <BarChart3 :size="48" :stroke-width="1.5" />
+                </div>
                 <div class="sync-text">{{ syncMessage }}</div>
                 <div class="sync-progress">
                     <div class="progress-bar" ref="progressBarRef"></div>
@@ -43,10 +45,10 @@
                     <p class="panel-subtitle">パフォーマンス概要</p>
                     <div class="panel-actions">
                         <button class="btn-settings" @click="showConfig = true" title="Settings">
-                            <span class="settings-icon">⚙️</span>
+                            <Settings :size="18" :stroke-width="2" />
                         </button>
                         <button class="btn-refresh" @click="refreshData" :disabled="isSyncing" title="Refresh">
-                            <span class="refresh-icon">🔄</span>
+                            <RefreshCw :size="18" :stroke-width="2" />
                         </button>
                     </div>
                 </div>
@@ -264,6 +266,7 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import gsap from 'gsap'
 import { fetchMyTrades, fetchAllTrades, testConnection, validateApiKey, validateApiSecret, parseError } from '../utils/binanceApi'
 import { useKinesisAlert } from '../composables/useKinesisAlert'
+import { Settings, RefreshCw, BarChart3 } from 'lucide-vue-next'
 
 // Alert composable
 const {

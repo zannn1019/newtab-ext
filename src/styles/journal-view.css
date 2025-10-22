@@ -48,9 +48,11 @@
 }
 
 .sync-icon {
-  font-size: 4rem;
   margin-bottom: var(--space-6);
   animation: pulse 2s ease-in-out infinite;
+  color: var(--primary-color);
+  display: flex;
+  justify-content: center;
 }
 
 @keyframes pulse {
@@ -265,11 +267,6 @@
 .btn-refresh:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.refresh-icon,
-.settings-icon {
-  font-size: 1rem;
 }
 
 /* ============================================

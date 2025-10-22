@@ -35,7 +35,9 @@
                 <div v-for="(command, index) in group" :key="command.id" class="command-item"
                     :class="{ 'selected': selectedIndex === getCommandGlobalIndex(command) }"
                     @click="executeCommand(command)" @mouseenter="selectedIndex = getCommandGlobalIndex(command)">
-                    <div class="command-icon">{{ command.icon }}</div>
+                    <div class="command-icon">
+                        <component :is="iconComponents[command.icon] || Search" :size="20" :stroke-width="2" />
+                    </div>
                     <div class="command-info">
                         <div class="command-name">
                             {{ command.name }}
@@ -63,9 +65,28 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import gsap from 'gsap'
+import {
+    Flower2, TrendingUp, Bookmark, BarChart3, FileText,
+    Image, RefreshCw, Trash2, Sun, Moon, Search
+} from 'lucide-vue-next'
 import { useKinesisAlert } from '../composables/useKinesisAlert'
 
 const { confirm, success: showSuccess } = useKinesisAlert()
+
+// Icon mapping
+const iconComponents = {
+    '🧘': Flower2,
+    '📈': TrendingUp,
+    '🔖': Bookmark,
+    '📊': BarChart3,
+    '📝': FileText,
+    '🖼️': Image,
+    '🔄': RefreshCw,
+    '🗑️': Trash2,
+    '☀️': Sun,
+    '🌙': Moon,
+    '🔍': Search
+}
 
 const props = defineProps({
     currentView: String
@@ -560,8 +581,11 @@ onUnmounted(() => {
 }
 
 .command-icon {
-    font-size: 1.5rem;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    min-width: 32px;
 }
 
 .command-info {
