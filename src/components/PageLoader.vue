@@ -32,6 +32,7 @@ import gsap from 'gsap'
 
 const isLoading = ref(true)
 const progressBarRef = ref(null)
+const shouldShowLoader = ref(false)
 
 const emit = defineEmits(['loaded'])
 
@@ -49,7 +50,40 @@ const onLoadComplete = () => {
     emit('loaded')
 }
 
-onMounted(() => {
+// Check if this is the first new tab since browser opened
+const checkIfShouldShowLoader = async () => {
+    try {
+        // Query all open new tab pages
+        const tabs = await chrome.tabs.query({ url: chrome.runtime.getURL('*') })
+        
+        // If this is the only new tab page open, show loader (first tab)
+        // If there are other new tab pages, don't show loader
+        return tabs.length <= 1
+    } catch (error) {
+        // Fallback: use localStorage with timestamp
+        const lastShown = localStorage.getItem('loaderLastShown')
+        const now = Date.now()
+        
+        // Show loader if never shown or if more than 5 minutes have passed
+        // (indicates browser was closed and reopened)
+        if (!lastShown || (now - parseInt(lastShown)) > 300000) {
+            localStorage.setItem('loaderLastShown', now.toString())
+            return true
+        }
+        return false
+    }
+}
+
+onMounted(async () => {
+    // Check if we should show the loader
+    shouldShowLoader.value = await checkIfShouldShowLoader()
+    
+    if (!shouldShowLoader.value) {
+        isLoading.value = false
+        emit('loaded')
+        return
+    }
+
     const tl = gsap.timeline()
 
     // Animate each letter of ZAN

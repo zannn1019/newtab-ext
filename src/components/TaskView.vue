@@ -34,6 +34,7 @@
                         <option value="high">High Priority</option>
                     </select>
                     <input v-model="newTaskDueDate" type="date" class="due-date-input" :min="today" />
+                    <input v-model="newTaskDueTime" type="time" class="due-time-input" :disabled="!newTaskDueDate" />
                     <label class="daily-toggle">
                         <input type="checkbox" v-model="newTaskIsDaily" />
                         <span>Daily Task</span>
@@ -142,6 +143,7 @@ const tasks = ref([])
 const newTaskTitle = ref('')
 const newTaskPriority = ref('medium')
 const newTaskDueDate = ref('')
+const newTaskDueTime = ref('')
 const newTaskIsDaily = ref(false)
 const currentFilter = ref('all')
 const isAddFocused = ref(false)
@@ -219,11 +221,21 @@ const streakDays = computed(() => {
 const addTask = async () => {
     if (!newTaskTitle.value.trim()) return
 
+    // Combine date and time if both are provided
+    let dueDateTime = null
+    if (newTaskDueDate.value) {
+        if (newTaskDueTime.value) {
+            dueDateTime = `${newTaskDueDate.value}T${newTaskDueTime.value}`
+        } else {
+            dueDateTime = newTaskDueDate.value
+        }
+    }
+
     const task = {
         id: Date.now(),
         title: newTaskTitle.value.trim(),
         priority: newTaskPriority.value,
-        dueDate: newTaskDueDate.value || null,
+        dueDate: dueDateTime,
         isDaily: newTaskIsDaily.value,
         completed: false,
         createdAt: new Date().toISOString(),
@@ -239,6 +251,7 @@ const addTask = async () => {
     newTaskTitle.value = ''
     newTaskPriority.value = 'medium'
     newTaskDueDate.value = ''
+    newTaskDueTime.value = ''
     newTaskIsDaily.value = false
 
     // Animate the new task
@@ -329,19 +342,54 @@ const archiveCompleted = async () => {
 
 const isOverdue = (task) => {
     if (!task.dueDate || task.completed) return false
-    return new Date(task.dueDate) < new Date()
+    const dueDate = new Date(task.dueDate)
+    const now = new Date()
+    
+    // If task has time, compare exact datetime
+    // If task only has date, compare dates only
+    const hasTime = task.dueDate.includes('T') || task.dueDate.includes(':')
+    
+    if (hasTime) {
+        return dueDate < now
+    } else {
+        // For date-only tasks, check if the date has passed (end of day)
+        const dueDateEnd = new Date(dueDate)
+        dueDateEnd.setHours(23, 59, 59, 999)
+        return dueDateEnd < now
+    }
 }
 
 const formatDate = (dateString) => {
+    if (!dateString) return ''
+    
     const date = new Date(dateString)
     const today = new Date()
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
 
-    if (date.toDateString() === today.toDateString()) return 'Today'
-    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow'
+    // Check if it has time component (datetime-local format)
+    const hasTime = dateString.includes('T') || dateString.includes(':')
     
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    let dateLabel = ''
+    if (date.toDateString() === today.toDateString()) {
+        dateLabel = 'Today'
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+        dateLabel = 'Tomorrow'
+    } else {
+        dateLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    }
+    
+    // Add time if available
+    if (hasTime && !isNaN(date.getHours())) {
+        const timeStr = date.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            hour12: true 
+        })
+        return `${dateLabel} ${timeStr}`
+    }
+    
+    return dateLabel
 }
 
 const formatRelativeTime = (timestamp) => {
@@ -558,7 +606,8 @@ onMounted(() => {
 }
 
 .priority-select,
-.due-date-input {
+.due-date-input,
+.due-time-input {
     padding: var(--space-2) var(--space-3);
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--border-color);
@@ -567,6 +616,11 @@ onMounted(() => {
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s ease;
+}
+
+.due-time-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .daily-toggle {
@@ -600,7 +654,8 @@ onMounted(() => {
 }
 
 .priority-select:hover,
-.due-date-input:hover {
+.due-date-input:hover,
+.due-time-input:hover:not(:disabled) {
     border-color: var(--primary-color);
 }
 
