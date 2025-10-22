@@ -31,7 +31,12 @@
             @apply="applyBackground" />
 
         <!-- Large Vertical ZAN Branding -->
-        <div v-if="isPageLoaded" class="zan-branding">ファウザン</div>
+        <div v-if="isPageLoaded" class="zan-branding" ref="zanBrandingRef">
+            <span v-for="(char, index) in brandingChars" :key="index" class="branding-char"
+                :style="{ '--char-index': index }">
+                {{ char }}
+            </span>
+        </div>
     </div>
 </template>
 
@@ -63,11 +68,97 @@ const isNotesActive = ref(false);
 const isBackgroundSettingsActive = ref(false);
 const customBackgroundRef = ref(null);
 
+// ZAN Branding
+const zanBrandingRef = ref(null);
+const brandingChars = ['フ', 'ァ', 'ウ', 'ザ', 'ン'];
+
 /**
  * Page load complete handler
  */
 const onPageLoaded = () => {
     isPageLoaded.value = true;
+
+    // Trigger branding animation after page loads
+    nextTick(() => {
+        animateBranding();
+    });
+};
+
+/**
+ * Animate ZAN Branding with mind-blowing effects
+ */
+const animateBranding = () => {
+    const chars = document.querySelectorAll('.branding-char');
+    if (chars.length === 0) return;
+
+    const tl = gsap.timeline();
+
+    // Initial state - characters below and invisible
+    gsap.set(chars, {
+        y: 200,
+        opacity: 0,
+        rotationX: -90,
+        scale: 0.5,
+        filter: 'blur(20px)',
+    });
+
+    // Staggered rise up animation
+    tl.to(chars, {
+        y: 0,
+        opacity: 0.12,
+        rotationX: 0,
+        scale: 1,
+        filter: 'blur(0px)',
+        duration: 1.8,
+        stagger: {
+            each: 0.15,
+            ease: 'power4.out',
+        },
+        ease: 'expo.out',
+    });
+
+    // Add floating animation loop
+    chars.forEach((char, index) => {
+        gsap.to(char, {
+            y: -15,
+            duration: 3 + index * 0.2,
+            repeat: -1,
+            yoyo: true,
+            ease: 'sine.inOut',
+            delay: index * 0.15,
+        });
+    });
+
+    // Add subtle glow pulse
+    gsap.to(chars, {
+        textShadow: '0 0 30px rgba(139, 92, 246, 0.3), 0 0 60px rgba(99, 102, 241, 0.2)',
+        duration: 2,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut',
+        stagger: 0.2,
+    });
+};
+
+/**
+ * Mouse parallax effect for branding
+ */
+let mouseX = 0;
+let mouseY = 0;
+
+const handleMouseMove = (e) => {
+    mouseX = (e.clientX / window.innerWidth - 0.5) * 20;
+    mouseY = (e.clientY / window.innerHeight - 0.5) * 20;
+
+    const chars = document.querySelectorAll('.branding-char');
+    chars.forEach((char, index) => {
+        gsap.to(char, {
+            x: mouseX * (1 + index * 0.1),
+            y: mouseY * (1 + index * 0.1),
+            duration: 1.5,
+            ease: 'power2.out',
+        });
+    });
 };
 
 // Legacy refs (kept for compatibility)
@@ -328,6 +419,9 @@ onMounted(() => {
     // Add global keyboard listener
     document.addEventListener('keydown', handleGlobalKeydown);
 
+    // Add mouse move listener for parallax
+    document.addEventListener('mousemove', handleMouseMove);
+
     // Load and apply saved background after refs are ready
     nextTick(() => {
         const savedBackground = localStorage.getItem('zan-background-settings');
@@ -347,6 +441,7 @@ onMounted(() => {
 // Cleanup on unmount
 onUnmounted(() => {
     document.removeEventListener('keydown', handleGlobalKeydown);
+    document.removeEventListener('mousemove', handleMouseMove);
 });
 </script>
 
@@ -401,17 +496,94 @@ onUnmounted(() => {
     line-height: 0.85;
     letter-spacing: 0.1em;
     color: var(--text-primary);
-    opacity: 0.08;
     writing-mode: vertical-rl;
     text-orientation: upright;
     pointer-events: none;
     z-index: 1;
     user-select: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.05em;
+    perspective: 1000px;
+    transform-style: preserve-3d;
+}
+
+.branding-char {
+    display: inline-block;
+    opacity: 0.08;
+    transition: opacity 0.3s ease;
+    will-change: transform, opacity, filter;
+    transform-origin: center center;
+    position: relative;
+}
+
+/* Hover effect on branding */
+.zan-branding:hover .branding-char {
+    opacity: 0.2;
+}
+
+/* Gradient text effect */
+.branding-char::before {
+    content: attr(data-char);
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: linear-gradient(180deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.zan-branding:hover .branding-char::before {
+    opacity: 0.3;
+}
+
+/* Glass morphism backdrop */
+.branding-char::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120%;
+    height: 120%;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    z-index: -1;
+}
+
+.zan-branding:hover .branding-char::after {
+    opacity: 1;
+}
+
+/* Individual character animation delays */
+.branding-char:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.branding-char:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.branding-char:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+.branding-char:nth-child(4) {
+    animation-delay: 0.45s;
+}
+
+.branding-char:nth-child(5) {
+    animation-delay: 0.6s;
 }
 
 @media (max-width: 768px) {
     .zan-branding {
-        font-size: 8rem;
+        font-size: 6rem;
         bottom: var(--space-6);
         left: var(--space-6);
     }
