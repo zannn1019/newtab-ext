@@ -54,7 +54,7 @@
         <div v-if="isExpanded && filteredCommands.length === 0 && searchQuery" class="empty-state">
             <div class="empty-icon">🔍</div>
             <div class="empty-text">No commands found</div>
-            <div class="empty-hint">Press Enter to search on Google</div>
+            <div class="empty-hint">Press Enter to {{ isURL(searchQuery) ? 'visit website' : 'search on Google' }}</div>
         </div>
 
         <!-- Sumi ink brush decoration -->
@@ -254,6 +254,16 @@ const getCommandGlobalIndex = (command) => {
     return filteredCommands.value.findIndex(cmd => cmd.id === command.id)
 }
 
+// Check if input is a URL
+const isURL = (text) => {
+    const query = text.trim()
+    return /^(https?:\/\/)/.test(query) || 
+           /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(query) ||
+           query.includes('.com') || query.includes('.org') || 
+           query.includes('.net') || query.includes('.io') ||
+           query.includes('.co') || query.includes('.dev')
+}
+
 // Execute command
 const executeCommand = (command) => {
     command.action()
@@ -309,8 +319,26 @@ const handleKeydown = (e) => {
         if (filteredCommands.value.length > 0) {
             executeCommand(filteredCommands.value[selectedIndex.value])
         } else if (searchQuery.value) {
-            // No commands found - search on Google
-            window.location.href = `https://www.google.com/search?q=${encodeURIComponent(searchQuery.value)}`
+            const query = searchQuery.value.trim()
+            
+            // Check if it's a URL or domain
+            const isURL = /^(https?:\/\/)/.test(query) || 
+                         /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(query) ||
+                         query.includes('.com') || query.includes('.org') || 
+                         query.includes('.net') || query.includes('.io') ||
+                         query.includes('.co') || query.includes('.dev')
+            
+            if (isURL) {
+                // Navigate to the URL
+                let url = query
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url
+                }
+                window.location.href = url
+            } else {
+                // Search on Google
+                window.location.href = `https://www.google.com/search?q=${encodeURIComponent(query)}`
+            }
         }
         return
     }

@@ -415,9 +415,10 @@ onMounted(() => {
     font-size: 3rem;
     font-weight: 200;
     margin: 0 0 var(--space-2) 0;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    /* background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+        */
     background-clip: text;
 }
 
