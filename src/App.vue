@@ -93,50 +93,50 @@ const animateBranding = () => {
 
     const tl = gsap.timeline();
 
-    // Initial state - characters below and invisible
+    // Initial state - characters from left, invisible
     gsap.set(chars, {
-        y: 200,
+        x: -150,
         opacity: 0,
-        rotationX: -90,
+        rotationY: -90,
         scale: 0.5,
         filter: 'blur(20px)',
     });
 
-    // Staggered rise up animation
+    // Staggered slide in animation (faster)
     tl.to(chars, {
-        y: 0,
+        x: 0,
         opacity: 0.12,
-        rotationX: 0,
+        rotationY: 0,
         scale: 1,
         filter: 'blur(0px)',
-        duration: 1.8,
+        duration: 0.8,
         stagger: {
-            each: 0.15,
+            each: 0.08,
             ease: 'power4.out',
         },
         ease: 'expo.out',
     });
 
-    // Add floating animation loop
+    // Add floating animation loop (faster)
     chars.forEach((char, index) => {
         gsap.to(char, {
-            y: -15,
-            duration: 3 + index * 0.2,
+            x: 10,
+            duration: 2 + index * 0.15,
             repeat: -1,
             yoyo: true,
             ease: 'sine.inOut',
-            delay: index * 0.15,
+            delay: index * 0.08,
         });
     });
 
-    // Add subtle glow pulse
+    // Add subtle glow pulse (faster)
     gsap.to(chars, {
         textShadow: '0 0 30px rgba(139, 92, 246, 0.3), 0 0 60px rgba(99, 102, 241, 0.2)',
-        duration: 2,
+        duration: 1.5,
         repeat: -1,
         yoyo: true,
         ease: 'sine.inOut',
-        stagger: 0.2,
+        stagger: 0.1,
     });
 };
 
@@ -147,15 +147,15 @@ let mouseX = 0;
 let mouseY = 0;
 
 const handleMouseMove = (e) => {
-    mouseX = (e.clientX / window.innerWidth - 0.5) * 20;
-    mouseY = (e.clientY / window.innerHeight - 0.5) * 20;
+    mouseX = (e.clientX / window.innerWidth - 0.5) * 15;
+    mouseY = (e.clientY / window.innerHeight - 0.5) * 15;
 
     const chars = document.querySelectorAll('.branding-char');
     chars.forEach((char, index) => {
         gsap.to(char, {
-            x: mouseX * (1 + index * 0.1),
-            y: mouseY * (1 + index * 0.1),
-            duration: 1.5,
+            x: mouseX * (1 + index * 0.15),
+            y: mouseY * (1 + index * 0.15),
+            duration: 0.8,
             ease: 'power2.out',
         });
     });
@@ -493,16 +493,14 @@ onUnmounted(() => {
     font-family: var(--font-serif);
     font-size: 8rem;
     font-weight: 300;
-    line-height: 0.85;
+    line-height: 1;
     letter-spacing: 0.1em;
     color: var(--text-primary);
-    writing-mode: vertical-rl;
-    text-orientation: upright;
     pointer-events: none;
     z-index: 1;
     user-select: none;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 0.05em;
     perspective: 1000px;
     transform-style: preserve-3d;
