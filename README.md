@@ -39,7 +39,7 @@
 - **Slide-in Animation** — GSAP-powered entrance from right
 - **Japanese Headers** — メモ (Memo) with ambient decoration
 
-### Trading Journal (Press `J`) 📊 **NEW!**
+### Trading Journal (Press `J`) 📊
 
 - **Binance Integration** — Sync your trading history via API
 - **Performance Analytics** — Total P&L, Win Rate, Profit Factor, Best Trade
@@ -55,6 +55,26 @@
 > **See**: [`JOURNAL_GUIDE.md`](JOURNAL_GUIDE.md) for complete setup & usage guide  
 > **See**: [`LICENSE_SYSTEM.md`](LICENSE_SYSTEM.md) for monetization implementation details
 
+### Task Management (Press `T`) ✅ **NEW!**
+
+- **Quick Add Input** — Fast task creation with priority and due dates
+- **Smart Filtering** — View All/Active/Completed tasks
+- **Priority System** — High/Medium/Low with color-coded indicators
+- **Due Date Tracking** — "Today", "Tomorrow", or specific dates
+- **Completion Streak** — Track your productivity momentum
+- **GSAP Animations** — Smooth task add/complete/delete transitions
+- **Archive System** — Bulk archive completed tasks with confirmation
+- **localStorage Persistence** — All tasks saved automatically
+- **Beautiful Empty States** — Motivational messages when lists are clear
+
+> **Features:**
+> - ⚡ Lightning-fast task capture
+> - 🎯 Priority-based sorting (High → Medium → Low)
+> - 📅 Overdue task highlighting
+> - 📊 Daily completion stats & streak counter
+> - ✨ Smooth check animations on completion
+> - 🗑️ Safe delete with custom alert confirmations
+
 ### Command Palette
 
 - **Smart Search** — Type commands or search Google
@@ -69,13 +89,15 @@
 | ----- | ----------------------- |
 | `Z`   | Navigate to Zen View    |
 | `K`   | Navigate to Market View |
-| `J`   | Navigate to Trading Journal 📊 **NEW!** |
+| `J`   | Navigate to Trading Journal 📊 |
+| `T`   | Navigate to Task Management ✅ **NEW!** |
 | `B`   | Navigate to Bookmarks   |
 | `M`   | Toggle Quick Notes      |
 | `Esc` | Close Notes / Clear     |
 
 **Command Palette Search:**
 
+- Type "tasks", "todo", "checklist" → Task Management ✅
 - Type "journal", "trades" → Trading Journal 📊
 - Type "market", "finance", "crypto" → Market View
 - Type "zen", "home", "clock" → Zen View

@@ -48,6 +48,7 @@ import ZenView from "./components/ZenView.vue";
 import MarketView from "./components/MarketView.vue";
 import BookmarksView from "./components/BookmarksView.vue";
 import JournalView from "./components/JournalView.vue";
+import TaskView from "./components/TaskView.vue";
 import QuickNotes from "./components/QuickNotes.vue";
 import BackgroundSettings from "./components/BackgroundSettings.vue";
 import AnimatedBackground from "./components/AnimatedBackground.vue";
@@ -171,6 +172,7 @@ const viewComponents = {
     market: MarketView,
     bookmarks: BookmarksView,
     journal: JournalView,
+    tasks: TaskView,
 };
 
 const currentViewComponent = computed(() => viewComponents[currentView.value]);
@@ -357,7 +359,7 @@ const applyBackground = (settings) => {
 
 /**
  * Global Keyboard Handler
- * Listens for M, K, B, J, Z and Escape keys
+ * Listens for M, K, B, J, Z, T and Escape keys
  */
 const handleGlobalKeydown = (e) => {
     // Don't trigger if user is typing in an input/textarea
@@ -385,6 +387,12 @@ const handleGlobalKeydown = (e) => {
     if (e.key.toLowerCase() === 'j' && !isInInput) {
         e.preventDefault();
         handleNavigation('journal');
+    }
+
+    // 't' key - Navigate to Tasks view
+    if (e.key.toLowerCase() === 't' && !isInInput) {
+        e.preventDefault();
+        handleNavigation('tasks');
     }
 
     // 'z' key - Navigate to Zen view

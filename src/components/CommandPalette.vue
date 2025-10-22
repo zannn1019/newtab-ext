@@ -67,7 +67,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import gsap from 'gsap'
 import {
     Flower2, TrendingUp, Bookmark, BarChart3, FileText,
-    Image, RefreshCw, Trash2, Sun, Moon, Search
+    Image, RefreshCw, Trash2, Sun, Moon, Search, CheckSquare
 } from 'lucide-vue-next'
 import { useKinesisAlert } from '../composables/useKinesisAlert'
 
@@ -79,6 +79,7 @@ const iconComponents = {
     '📈': TrendingUp,
     '🔖': Bookmark,
     '📊': BarChart3,
+    '✅': CheckSquare,
     '📝': FileText,
     '🖼️': Image,
     '🔄': RefreshCw,
@@ -144,6 +145,17 @@ const commands = ref([
         key: 'J',
         keywords: ['journal', 'trading', 'trades', 'analytics', 'binance', 'pnl'],
         action: () => emit('navigate', 'journal')
+    },
+    {
+        id: 'nav-tasks',
+        name: 'Task Management',
+        nameJP: 'タスク管理',
+        description: 'Manage your tasks and todos',
+        icon: '✅',
+        category: 'Productivity',
+        key: 'T',
+        keywords: ['tasks', 'todo', 'checklist', 'productivity', 'manage'],
+        action: () => emit('navigate', 'tasks')
     },
     {
         id: 'nav-notes',
