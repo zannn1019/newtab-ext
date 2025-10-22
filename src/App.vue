@@ -493,17 +493,15 @@ onUnmounted(() => {
     font-family: var(--font-serif);
     font-size: 8rem;
     font-weight: 300;
-    line-height: 0.85;
-    letter-spacing: 0.1em;
+    line-height: 1.1;
+        letter-spacing: 0;
     color: var(--text-primary);
-    writing-mode: vertical-rl;
-    text-orientation: upright;
     pointer-events: none;
     z-index: 1;
     user-select: none;
     display: flex;
     flex-direction: column;
-    gap: 0.05em;
+    gap: 0;
     perspective: 1000px;
     transform-style: preserve-3d;
 }
