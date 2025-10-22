@@ -11,7 +11,7 @@
                     <div class="alert-icon-wrapper" ref="iconRef">
                         <div class="alert-icon-pulse"></div>
                         <div class="alert-icon" :class="`alert-icon-${type}`">
-                            {{ iconMap[type] }}
+                            <component :is="iconComponent" :size="36" :stroke-width="1.5" />
                         </div>
                     </div>
 
@@ -46,6 +46,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import gsap from 'gsap'
+import { CheckCircle2, XCircle, AlertTriangle, Info, HelpCircle } from 'lucide-vue-next'
 
 const props = defineProps({
     type: {
@@ -87,13 +88,16 @@ const contentRef = ref(null)
 const actionsRef = ref(null)
 const confirmBtnRef = ref(null)
 
-const iconMap = {
-    success: '✓',
-    error: '✕',
-    warning: '⚠',
-    info: 'ⓘ',
-    confirm: '?'
-}
+const iconComponent = computed(() => {
+    const icons = {
+        success: CheckCircle2,
+        error: XCircle,
+        warning: AlertTriangle,
+        info: Info,
+        confirm: HelpCircle
+    }
+    return icons[props.type] || Info
+})
 
 let autoCloseTimeout = null
 
@@ -317,8 +321,8 @@ defineExpose({
 /* Icon */
 .alert-icon-wrapper {
     position: relative;
-    width: 72px;
-    height: 72px;
+    width: 80px;
+    height: 80px;
     margin: 0 auto 24px;
     display: flex;
     align-items: center;
@@ -331,21 +335,21 @@ defineExpose({
     height: 100%;
     border-radius: 50%;
     background: currentColor;
-    opacity: 0.3;
+    opacity: 0.2;
 }
 
 .alert-icon {
     position: relative;
-    width: 72px;
-    height: 72px;
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 36px;
-    font-weight: 300;
     border: 2px solid currentColor;
     z-index: 1;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
 }
 
 .alert-icon-success {
