@@ -36,6 +36,16 @@
 
         <!-- Main Journal Dashboard -->
         <div v-else class="journal-dashboard">
+            <!-- Free Tier Banner -->
+            <div v-if="!isPro" class="free-tier-banner">
+                <span class="banner-text">
+                    🆓 Free Tier - Limited to {{ symbolsList.length }}/3 trading pairs
+                </span>
+                <button class="banner-upgrade-btn" @click="showConfig = true">
+                    ✨ Upgrade to Pro
+                </button>
+            </div>
+
             <!-- Summary Panel (Left) -->
             <div class="summary-panel" ref="summaryPanelRef">
                 <div class="panel-header">
@@ -224,8 +234,48 @@
                         <div class="form-hint">Select which market you trade on. Futures is for leveraged trading.</div>
                     </div>
 
+                    <!-- Pro License Section -->
+                    <div class="form-group license-section">
+                        <label class="license-label">
+                            <span>License Status</span>
+                            <span v-if="isPro" class="badge-pro">✨ PRO</span>
+                            <span v-else class="badge-free">🆓 FREE</span>
+                        </label>
+
+                        <div v-if="!isPro" class="license-input-group">
+                            <input v-model="licenseKey" type="text" placeholder="Enter your Pro license key"
+                                class="license-input" :disabled="isValidatingLicense" />
+                            <button type="button" @click="validateLicense" class="btn-activate"
+                                :disabled="isValidatingLicense">
+                                {{ isValidatingLicense ? 'Checking...' : 'Activate' }}
+                            </button>
+                        </div>
+
+                        <div v-if="isPro" class="license-active">
+                            <div class="license-status">
+                                ✅ Pro features unlocked!
+                            </div>
+                        </div>
+
+                        <div v-if="!isPro" class="license-info">
+                            <div class="upgrade-banner">
+                                <strong>🚀 Upgrade to Pro - $9.99 lifetime!</strong>
+                                <ul class="pro-features">
+                                    <li>✅ Unlimited trading pairs</li>
+                                    <li>✅ Advanced analytics</li>
+                                    <li>✅ Export to CSV</li>
+                                    <li>✅ Extended history</li>
+                                </ul>
+                                <a href="#" class="btn-get-pro" target="_blank">Get Pro License</a>
+                            </div>
+                            <div class="form-hint">
+                                Free tier: Limited to 3 trading pairs
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-group">
-                        <label>Trading Pairs to Track</label>
+                        <label>Trading Pairs to Track {{ !isPro ? '(Max 3 on Free)' : '' }}</label>
                         <div class="symbols-list">
                             <div v-for="(symbol, index) in symbolsList" :key="index" class="symbol-item">
                                 <input v-model="symbolsList[index]" type="text" placeholder="BTCUSDT"
@@ -263,6 +313,18 @@
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import gsap from 'gsap'
 import { fetchMyTrades, fetchAllTrades, testConnection, validateApiKey, validateApiSecret, parseError } from '../utils/binanceApi'
+import { useKinesisAlert } from '../composables/useKinesisAlert'
+
+// Alert composable
+const {
+    upgradePrompt,
+    licenseSuccess,
+    licenseError,
+    licenseEmpty,
+    confirm,
+    error: showError,
+    success: showSuccess
+} = useKinesisAlert()
 
 // State
 const isSyncing = ref(false)
@@ -292,6 +354,11 @@ const config = ref({
 
 // Symbols list for UI
 const symbolsList = ref(['BTCUSDT', 'ETHUSDT', 'BNBUSDT'])
+
+// License/Pro features
+const licenseKey = ref('')
+const isPro = ref(false)
+const isValidatingLicense = ref(false)
 
 // Data
 const trades = ref([])
@@ -367,14 +434,77 @@ const loadSavedData = () => {
     }
 }
 
+// License validation
+const validateLicense = async () => {
+    if (!licenseKey.value.trim()) {
+        await licenseEmpty()
+        return
+    }
+
+    isValidatingLicense.value = true
+
+    try {
+        // For demo: Simple validation (you'll replace with Gumroad API)
+        // In production, use Gumroad API: https://api.gumroad.com/v2/licenses/verify
+
+        // Demo validation (accepts any key starting with "PRO-")
+        const isValid = licenseKey.value.trim().toUpperCase().startsWith('PRO-')
+
+        if (isValid) {
+            isPro.value = true
+            localStorage.setItem('kinesis-license', licenseKey.value.trim())
+            await licenseSuccess()
+        } else {
+            await licenseError()
+        }
+    } catch (error) {
+        console.error('License validation error:', error)
+        await showError('Could not validate license. Please try again.', 'Validation Failed', '検証失敗')
+    } finally {
+        isValidatingLicense.value = false
+    }
+}
+
+const checkSavedLicense = () => {
+    const savedLicense = localStorage.getItem('kinesis-license')
+    if (savedLicense) {
+        licenseKey.value = savedLicense
+        // Auto-validate on load
+        const isValid = savedLicense.toUpperCase().startsWith('PRO-')
+        if (isValid) {
+            isPro.value = true
+            console.log('✅ Pro license active')
+        }
+    }
+}
+
 // Symbol management
-const addSymbol = () => {
+const addSymbol = async () => {
+    // Free tier limit: 3 symbols
+    if (!isPro.value && symbolsList.value.length >= 3) {
+        const shouldUpgrade = await upgradePrompt()
+        if (shouldUpgrade) {
+            showConfig.value = true
+        }
+        return
+    }
+
     symbolsList.value.push('')
 }
 
-const removeSymbol = (index) => {
+const removeSymbol = async (index) => {
     if (symbolsList.value.length > 1) {
-        symbolsList.value.splice(index, 1)
+        const symbol = symbolsList.value[index] || 'this trading pair'
+        const confirmed = await confirm(
+            `Remove ${symbol} from your tracked symbols?`,
+            'Remove Trading Pair',
+            'シンボル削除'
+        )
+
+        if (confirmed) {
+            symbolsList.value.splice(index, 1)
+            await showSuccess(`${symbol} removed successfully!`, 'Removed', '削除完了')
+        }
     }
 }
 
@@ -384,9 +514,15 @@ const validateSymbol = (index) => {
 }
 
 // Save configuration
-const saveConfig = () => {
+const saveConfig = async () => {
     // Convert symbols list to comma-separated string
     const validSymbols = symbolsList.value.filter(s => s.trim().length > 0)
+
+    if (validSymbols.length === 0) {
+        await showError('Please add at least one trading pair', 'No Trading Pairs', 'シンボルなし')
+        return
+    }
+
     config.value.symbols = validSymbols.join(',')
 
     localStorage.setItem('kinesis-binance-config', JSON.stringify(config.value))
@@ -395,20 +531,26 @@ const saveConfig = () => {
 }
 
 // Save configuration without syncing (just update settings)
-const saveConfigOnly = () => {
+const saveConfigOnly = async () => {
     // Convert symbols list to comma-separated string
     const validSymbols = symbolsList.value.filter(s => s.trim().length > 0)
+
+    if (validSymbols.length === 0) {
+        await showError('Please add at least one trading pair', 'No Trading Pairs', 'シンボルなし')
+        return
+    }
+
     config.value.symbols = validSymbols.join(',')
 
     localStorage.setItem('kinesis-binance-config', JSON.stringify(config.value))
     showConfig.value = false
 
-    // Show a subtle confirmation
-    const message = `✅ Settings saved! (${validSymbols.length} trading pairs)`
-    console.log(message)
-
-    // Optional: You could add a toast notification here
-    alert(message + '\n\nClick "Refresh" button or "Save & Sync Now" to fetch new data.')
+    // Show success confirmation
+    await showSuccess(
+        `Settings saved! Tracking ${validSymbols.length} trading pair${validSymbols.length > 1 ? 's' : ''}. Click "Refresh" to fetch new data.`,
+        'Settings Saved',
+        '設定保存完了'
+    )
 }
 
 // Initial sync
@@ -420,13 +562,13 @@ const startInitialSync = async () => {
 
     // Validate API key format
     if (!validateApiKey(config.value.apiKey)) {
-        alert('❌ Invalid API key format. API keys should be 64 characters.')
+        await showError('Invalid API key format. API keys should be 64 characters.', 'Invalid API Key', '無効なAPIキー')
         showConfig.value = true
         return
     }
 
     if (!validateApiSecret(config.value.apiSecret)) {
-        alert('❌ Invalid API secret format. API secrets should be 64 characters.')
+        await showError('Invalid API secret format. API secrets should be 64 characters.', 'Invalid API Secret', '無効なAPIシークレット')
         showConfig.value = true
         return
     }
@@ -574,6 +716,13 @@ const startInitialSync = async () => {
 
         isSyncing.value = false
 
+        // Show success notification
+        await showSuccess(
+            `Successfully synced ${trades.value.length} trades across ${symbolsList.value.length} trading pairs!`,
+            'Sync Complete',
+            '同期完了'
+        )
+
         // Animate dashboard entrance
         nextTick(() => {
             console.log('🎬 Animating dashboard entrance')
@@ -583,15 +732,31 @@ const startInitialSync = async () => {
         console.error('Sync error:', error)
         syncMessage.value = 'Sync failed'
         syncDetail.value = parseError(error)
-        await new Promise(resolve => setTimeout(resolve, 3000))
+        await new Promise(resolve => setTimeout(resolve, 1000))
         isSyncing.value = false
+
+        // Show error notification
+        await showError(
+            parseError(error),
+            'Sync Failed',
+            '同期失敗'
+        )
+
         showConfig.value = true // Show config again so user can fix
     }
 }
 
 // Refresh data
-const refreshData = () => {
-    startInitialSync()
+const refreshData = async () => {
+    const confirmed = await confirm(
+        'This will re-fetch all trades from Binance. Continue?',
+        'Refresh Trade Data',
+        'データ更新'
+    )
+
+    if (confirmed) {
+        startInitialSync()
+    }
 }
 
 // Mock Binance API fetch (replace with real implementation)
@@ -910,807 +1075,9 @@ const getPnLClass = (pnl) => {
 }
 
 onMounted(() => {
+    checkSavedLicense()
     loadSavedData()
 })
 </script>
 
-<style scoped>
-.journal-view {
-    width: 100%;
-    min-height: 100vh;
-    position: relative;
-    overflow: hidden;
-    background: transparent;
-    padding-top: 120px;
-    padding-bottom: var(--space-16);
-}
-
-.japanese-label {
-    position: absolute;
-    top: calc(120px + var(--space-8));
-    left: var(--space-8);
-    font-family: var(--font-serif);
-    font-size: 0.875rem;
-    font-weight: 300;
-    letter-spacing: 0.3em;
-    color: var(--text-muted);
-    z-index: 1;
-}
-
-/* Sync Overlay */
-.sync-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(245, 243, 240, 0.98);
-    backdrop-filter: blur(20px);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.sync-container {
-    text-align: center;
-    max-width: 400px;
-}
-
-.sync-icon {
-    font-size: 4rem;
-    margin-bottom: var(--space-6);
-    animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-
-    0%,
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-
-    50% {
-        opacity: 0.6;
-        transform: scale(1.1);
-    }
-}
-
-.sync-text {
-    font-family: var(--font-sans);
-    font-size: 1.25rem;
-    font-weight: 400;
-    color: var(--text-primary);
-    margin-bottom: var(--space-4);
-}
-
-.sync-progress {
-    width: 100%;
-    height: 2px;
-    background: var(--border-color);
-    margin: var(--space-6) 0;
-    overflow: hidden;
-}
-
-.progress-bar {
-    height: 100%;
-    background: var(--accent);
-    width: 0%;
-    transition: width 0.3s ease;
-}
-
-.sync-detail {
-    font-size: 0.875rem;
-    color: var(--text-muted);
-    font-weight: 300;
-}
-
-/* Initial Sync Prompt */
-.initial-sync-prompt {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 60vh;
-}
-
-.prompt-content {
-    text-align: center;
-    max-width: 500px;
-}
-
-.prompt-icon {
-    font-size: 5rem;
-    margin-bottom: var(--space-6);
-}
-
-.prompt-title {
-    font-size: 2.5rem;
-    font-weight: 200;
-    letter-spacing: 0.05em;
-    color: var(--text-primary);
-    margin-bottom: var(--space-2);
-}
-
-.prompt-subtitle {
-    font-family: var(--font-serif);
-    font-size: 0.875rem;
-    font-weight: 300;
-    letter-spacing: 0.2em;
-    color: var(--text-muted);
-    margin-bottom: var(--space-6);
-}
-
-.prompt-description {
-    font-size: 1rem;
-    color: var(--text-secondary);
-    line-height: 1.6;
-    margin-bottom: var(--space-8);
-}
-
-.btn-sync,
-.btn-configure {
-    padding: var(--space-4) var(--space-8);
-    border-radius: 6px;
-    font-family: var(--font-sans);
-    font-size: 1rem;
-    font-weight: 500;
-    letter-spacing: 0.05em;
-    cursor: pointer;
-    transition: all 0.3s var(--ease);
-    border: none;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-3);
-    margin: var(--space-2);
-}
-
-.btn-sync {
-    background: var(--accent);
-    color: white;
-}
-
-.btn-sync:hover {
-    background: var(--text-primary);
-    transform: translateY(-2px);
-}
-
-.btn-configure {
-    background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-}
-
-.btn-configure:hover {
-    border-color: var(--text-primary);
-    color: var(--text-primary);
-}
-
-.sync-btn-icon {
-    font-size: 1.25rem;
-}
-
-/* Dashboard */
-.journal-dashboard {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 var(--space-8);
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-8);
-    transition: filter 0.3s ease, opacity 0.3s ease;
-}
-
-.summary-panel,
-.history-panel {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: var(--space-6);
-}
-
-.panel-header {
-    position: relative;
-    margin-bottom: var(--space-6);
-    padding-bottom: var(--space-4);
-    border-bottom: 1px solid var(--border-color);
-}
-
-.panel-title {
-    font-size: 1.5rem;
-    font-weight: 300;
-    letter-spacing: 0.05em;
-    color: var(--text-primary);
-    margin-bottom: var(--space-1);
-}
-
-.panel-subtitle {
-    font-family: var(--font-serif);
-    font-size: 0.75rem;
-    font-weight: 300;
-    letter-spacing: 0.2em;
-    color: var(--text-muted);
-}
-
-.panel-actions {
-    position: absolute;
-    top: 0;
-    right: 0;
-    display: flex;
-    gap: var(--space-2);
-}
-
-.btn-refresh,
-.btn-settings {
-    width: 36px;
-    height: 36px;
-    background: transparent;
-    border: 1px solid var(--border-color);
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s var(--ease);
-}
-
-.btn-refresh:hover:not(:disabled) {
-    border-color: var(--accent);
-    transform: rotate(180deg);
-}
-
-.btn-settings:hover {
-    border-color: var(--accent);
-    background: rgba(139, 69, 19, 0.05);
-}
-
-.btn-refresh:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.refresh-icon,
-.settings-icon {
-    font-size: 1rem;
-}
-
-/* Stats Grid */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-4);
-}
-
-.stat-card {
-    padding: var(--space-4);
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    transition: all 0.3s var(--ease);
-}
-
-.stat-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-2px);
-}
-
-.stat-label {
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-muted);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    margin-bottom: var(--space-2);
-}
-
-.stat-value {
-    font-family: var(--font-mono);
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: var(--space-2);
-}
-
-.stat-value.positive {
-    color: #22c55e;
-}
-
-.stat-value.negative {
-    color: #ef4444;
-}
-
-.stat-sublabel {
-    font-size: 0.7rem;
-    color: var(--text-tertiary);
-    font-weight: 300;
-}
-
-/* Trade List */
-.filter-controls {
-    position: absolute;
-    top: 0;
-    right: 0;
-}
-
-.filter-select {
-    padding: var(--space-2) var(--space-3);
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-family: var(--font-sans);
-    font-size: 0.875rem;
-    color: var(--text-primary);
-    cursor: pointer;
-}
-
-.trades-list {
-    max-height: 600px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-}
-
-.trade-item {
-    display: grid;
-    grid-template-columns: 1fr 2fr auto;
-    align-items: center;
-    gap: var(--space-4);
-    padding: var(--space-4);
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s var(--ease);
-}
-
-.trade-item:hover {
-    border-color: var(--accent);
-    transform: translateX(4px);
-}
-
-.trade-symbol {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-}
-
-.symbol-text {
-    font-family: var(--font-mono);
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.trade-side {
-    font-size: 0.7rem;
-    font-weight: 600;
-    padding: 2px 6px;
-    border-radius: 3px;
-    display: inline-block;
-    width: fit-content;
-}
-
-.trade-side.buy {
-    background: rgba(34, 197, 94, 0.1);
-    color: #22c55e;
-}
-
-.trade-side.sell {
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
-}
-
-.trade-info {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-}
-
-.trade-pnl {
-    font-family: var(--font-mono);
-    font-size: 1.1rem;
-    font-weight: 600;
-}
-
-.trade-meta {
-    display: flex;
-    gap: var(--space-4);
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
-}
-
-.trade-arrow {
-    font-size: 1.25rem;
-    color: var(--text-muted);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.trade-item:hover .trade-arrow {
-    opacity: 1;
-}
-
-/* Detail Panel */
-.detail-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(45, 45, 45, 0.6);
-    backdrop-filter: blur(10px);
-    z-index: 2000;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-}
-
-.detail-panel {
-    width: 500px;
-    height: 100%;
-    background: var(--bg-primary);
-    border-left: 1px solid var(--border-color);
-    padding: var(--space-8);
-    overflow-y: auto;
-    position: relative;
-}
-
-.detail-close {
-    position: absolute;
-    top: var(--space-6);
-    right: var(--space-6);
-    width: 36px;
-    height: 36px;
-    background: transparent;
-    border: 1px solid var(--border-color);
-    border-radius: 50%;
-    font-size: 1.5rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s var(--ease);
-}
-
-.detail-close:hover {
-    border-color: var(--text-primary);
-    transform: rotate(90deg);
-}
-
-.detail-header {
-    margin-bottom: var(--space-8);
-}
-
-.detail-symbol {
-    font-family: var(--font-mono);
-    font-size: 2rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: var(--space-3);
-}
-
-.detail-pnl {
-    font-family: var(--font-mono);
-    font-size: 1.75rem;
-    font-weight: 600;
-}
-
-.detail-content {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-8);
-}
-
-.detail-section {
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: var(--space-6);
-}
-
-.section-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    margin-bottom: var(--space-4);
-}
-
-.detail-row {
-    display: flex;
-    justify-content: space-between;
-    padding: var(--space-3) 0;
-    font-size: 0.95rem;
-}
-
-.row-label {
-    color: var(--text-muted);
-    font-weight: 400;
-}
-
-.row-value {
-    color: var(--text-primary);
-    font-weight: 500;
-    font-family: var(--font-mono);
-}
-
-/* Config Modal */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(45, 45, 45, 0.6);
-    backdrop-filter: blur(10px);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal-content {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: var(--space-8);
-    max-width: 500px;
-    width: 90%;
-}
-
-.config-modal {
-    max-width: 600px;
-}
-
-.modal-title {
-    font-size: 1.75rem;
-    font-weight: 300;
-    letter-spacing: 0.05em;
-    color: var(--text-primary);
-    margin-bottom: var(--space-2);
-}
-
-.modal-subtitle {
-    font-family: var(--font-serif);
-    font-size: 0.875rem;
-    font-weight: 300;
-    letter-spacing: 0.2em;
-    color: var(--text-muted);
-    margin: 0 0 var(--space-8);
-}
-
-.config-form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-6);
-    margin-bottom: var(--space-6);
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-}
-
-.form-group label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    letter-spacing: 0.05em;
-}
-
-.form-group input,
-.form-group select {
-    padding: var(--space-3) var(--space-4);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-family: var(--font-sans);
-    font-size: 1rem;
-    color: var(--text-primary);
-    transition: all 0.3s var(--ease);
-}
-
-.form-group input:focus,
-.form-group select:focus {
-    outline: none;
-    border-color: var(--accent);
-    background: var(--bg-primary);
-}
-
-.market-select {
-    width: 100%;
-    cursor: pointer;
-}
-
-.form-hint {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    margin-top: var(--space-1);
-}
-
-/* Symbols List Management */
-.symbols-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-bottom: var(--space-3);
-}
-
-.symbol-item {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
-}
-
-.symbol-input {
-    flex: 1;
-    padding: var(--space-3) var(--space-4);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-family: var(--font-mono);
-    font-size: 0.95rem;
-    color: var(--text-primary);
-    text-transform: uppercase;
-    transition: all 0.3s var(--ease);
-}
-
-.symbol-input:focus {
-    outline: none;
-    border-color: var(--accent);
-    background: var(--bg-primary);
-}
-
-.btn-remove {
-    width: 32px;
-    height: 32px;
-    background: transparent;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    color: var(--text-secondary);
-    font-size: 1.25rem;
-    line-height: 1;
-    cursor: pointer;
-    transition: all 0.3s var(--ease);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.btn-remove:hover:not(:disabled) {
-    border-color: #ef4444;
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.1);
-}
-
-.btn-remove:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-}
-
-.btn-add-symbol {
-    padding: var(--space-2) var(--space-4);
-    background: transparent;
-    border: 1px dashed var(--border-color);
-    border-radius: 4px;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s var(--ease);
-    width: 100%;
-}
-
-.btn-add-symbol:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(139, 69, 19, 0.05);
-}
-.form-actions {
-    display: flex;
-    gap: var(--space-3);
-    justify-content: flex-end;
-    margin-top: var(--space-4);
-}
-
-.btn-primary,
-.btn-secondary {
-    padding: var(--space-3) var(--space-6);
-    border-radius: 4px;
-    font-family: var(--font-sans);
-    font-size: 0.875rem;
-    font-weight: 500;
-    letter-spacing: 0.05em;
-    cursor: pointer;
-    transition: all 0.3s var(--ease);
-    border: none;
-}
-
-.btn-primary {
-    background: var(--accent);
-    color: white;
-}
-
-.btn-primary:hover {
-    background: var(--text-primary);
-    transform: translateY(-2px);
-}
-
-.btn-secondary {
-    background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-}
-
-.btn-secondary:hover {
-    border-color: var(--text-primary);
-    color: var(--text-primary);
-}
-
-.config-warning {
-    padding: var(--space-4);
-    background: rgba(251, 191, 36, 0.1);
-    border: 1px solid rgba(251, 191, 36, 0.3);
-    border-radius: 6px;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    line-height: 1.6;
-}
-
-.empty-state {
-    text-align: center;
-    padding: var(--space-16) 0;
-}
-
-.empty-icon {
-    font-size: 4rem;
-    margin-bottom: var(--space-4);
-    opacity: 0.5;
-}
-
-.empty-text {
-    font-size: 1rem;
-    color: var(--text-muted);
-}
-
-/* Scrollbar */
-.trades-list::-webkit-scrollbar,
-.detail-panel::-webkit-scrollbar {
-    width: 6px;
-}
-
-.trades-list::-webkit-scrollbar-track,
-.detail-panel::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.trades-list::-webkit-scrollbar-thumb,
-.detail-panel::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 3px;
-}
-
-/* Responsive */
-@media (max-width: 1200px) {
-    .journal-dashboard {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 768px) {
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .trade-item {
-        grid-template-columns: 1fr;
-        gap: var(--space-2);
-    }
-
-    .detail-panel {
-        width: 100%;
-    }
-}
-</style>
+<style src="../styles/journal-view.css" scoped></style>

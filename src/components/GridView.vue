@@ -44,6 +44,9 @@
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
 import gsap from 'gsap'
+import { useKinesisAlert } from '../composables/useKinesisAlert'
+
+const { success: showSuccess, error: showError } = useKinesisAlert()
 
 const links = ref([
     { id: 1, title: 'GitHub', url: 'github.com' },
@@ -72,14 +75,27 @@ const handleLinkClick = (link) => {
     })
 }
 
-const handleAddLink = () => {
-    const title = prompt('リンクのタイトル:')
-    const url = prompt('URL:')
+const handleAddLink = async () => {
+    // Note: For proper input dialogs, consider creating a custom InputAlert component
+    // For now, we'll use native prompts but wrap in try-catch
+    try {
+        const title = prompt('リンクのタイトル / Link Title:')
+        if (!title) {
+            await showError('Link title is required', 'Missing Title', 'タイトルが必要')
+            return
+        }
 
-    if (title && url) {
+        const url = prompt('URL (e.g., github.com):')
+        if (!url) {
+            await showError('URL is required', 'Missing URL', 'URLが必要')
+            return
+        }
+
         const newId = Math.max(...links.value.map(l => l.id || 0)) + 1
         links.value.push({ id: newId, title, url })
         localStorage.setItem('zan-links', JSON.stringify(links.value))
+
+        await showSuccess(`Link "${title}" added successfully!`, 'Link Added', 'リンク追加')
 
         // Animate new card
         nextTick(() => {
@@ -91,6 +107,8 @@ const handleAddLink = () => {
                 ease: 'back.out(1.7)'
             })
         })
+    } catch (error) {
+        console.error('Error adding link:', error)
     }
 }
 

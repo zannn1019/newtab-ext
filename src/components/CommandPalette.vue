@@ -63,6 +63,9 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import gsap from 'gsap'
+import { useKinesisAlert } from '../composables/useKinesisAlert'
+
+const { confirm, success: showSuccess } = useKinesisAlert()
 
 const props = defineProps({
     currentView: String
@@ -164,10 +167,19 @@ const commands = ref([
         category: 'Utilities',
         key: '',
         keywords: ['clear', 'cache', 'reset', 'delete'],
-        action: () => {
-            if (confirm('Clear all data?')) {
+        action: async () => {
+            const confirmed = await confirm(
+                'This will delete all saved data including settings, links, notes, and trading journal. This action cannot be undone.',
+                'Clear All Data',
+                'データ削除'
+            )
+
+            if (confirmed) {
                 localStorage.clear()
-                window.location.reload()
+                await showSuccess('All data cleared successfully. Reloading...', 'Data Cleared', 'データ削除完了')
+                setTimeout(() => {
+                    window.location.reload()
+                }, 1500)
             }
         }
     }

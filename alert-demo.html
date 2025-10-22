@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kinesis Alert Demo</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+      }
+
+      .demo-container {
+        background: white;
+        border-radius: 20px;
+        padding: 48px;
+        max-width: 600px;
+        width: 100%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+
+      h1 {
+        font-size: 32px;
+        font-weight: 300;
+        margin-bottom: 12px;
+        color: #1a1a1a;
+      }
+
+      .subtitle {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 40px;
+        letter-spacing: 2px;
+      }
+
+      .alert-grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .demo-btn {
+        padding: 16px 24px;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .demo-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      }
+
+      .demo-btn:active {
+        transform: translateY(0);
+      }
+
+      .btn-success {
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      }
+
+      .btn-error {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      }
+
+      .btn-warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      }
+
+      .btn-info {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      }
+
+      .btn-confirm {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      }
+
+      .btn-upgrade {
+        background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);
+      }
+
+      .icon {
+        font-size: 24px;
+      }
+
+      .footer {
+        margin-top: 40px;
+        padding-top: 24px;
+        border-top: 1px solid #e5e5e5;
+        text-align: center;
+        color: #999;
+        font-size: 14px;
+      }
+
+      .code {
+        background: #f5f5f5;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-family: "Monaco", monospace;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="demo-container">
+      <h1>Kinesis Alert System</h1>
+      <p class="subtitle">JAPANESE MINIMALIST DESIGN • 日本のミニマリズム</p>
+
+      <div class="alert-grid">
+        <button class="demo-btn btn-success" onclick="showSuccessDemo()">
+          <span>✓ Success Alert</span>
+          <span class="icon">🎉</span>
+        </button>
+
+        <button class="demo-btn btn-error" onclick="showErrorDemo()">
+          <span>✕ Error Alert</span>
+          <span class="icon">🚫</span>
+        </button>
+
+        <button class="demo-btn btn-warning" onclick="showWarningDemo()">
+          <span>⚠ Warning Alert</span>
+          <span class="icon">⚡</span>
+        </button>
+
+        <button class="demo-btn btn-info" onclick="showInfoDemo()">
+          <span>ⓘ Info Alert</span>
+          <span class="icon">💡</span>
+        </button>
+
+        <button class="demo-btn btn-confirm" onclick="showConfirmDemo()">
+          <span>? Confirmation Dialog</span>
+          <span class="icon">❓</span>
+        </button>
+
+        <button class="demo-btn btn-upgrade" onclick="showUpgradeDemo()">
+          <span>✨ Upgrade Prompt</span>
+          <span class="icon">🚀</span>
+        </button>
+      </div>
+
+      <div class="footer">
+        <p><strong>Features:</strong></p>
+        <p style="margin-top: 8px; line-height: 1.8">
+          GSAP Animations • Backdrop Blur • Japanese Typography<br />
+          Floating Particles • Promise-based API • Auto-dismiss
+        </p>
+        <p style="margin-top: 16px">
+          <span class="code">useKinesisAlert()</span> composable
+        </p>
+      </div>
+    </div>
+
+    <script>
+      // Note: This is a demo. In your actual Vue app, import the composable:
+      // import { useKinesisAlert } from '../composables/useKinesisAlert'
+      // const { success, error, warning, info, confirm, upgradePrompt } = useKinesisAlert()
+
+      function showSuccessDemo() {
+        alert(
+          "✅ Success Alert\n\n成功\n\nPro activated! You now have unlimited trading pairs and features.\n\n[Auto-closes in 3 seconds]"
+        );
+      }
+
+      function showErrorDemo() {
+        alert(
+          "❌ Error Alert\n\nエラー\n\nInvalid license key. Please check and try again."
+        );
+      }
+
+      function showWarningDemo() {
+        alert(
+          "⚠️ Warning Alert\n\n警告\n\nPlease enter your license key to activate Pro features."
+        );
+      }
+
+      function showInfoDemo() {
+        alert(
+          'ℹ️ Info Alert\n\n情報\n\nSettings saved! Tracking 3 trading pairs. Click "Refresh" to fetch new data.'
+        );
+      }
+
+      function showConfirmDemo() {
+        const result = confirm(
+          "❓ Confirmation Dialog\n\n確認\n\nThis will re-fetch all trades from Binance. Continue?\n\n[Click OK to confirm, Cancel to dismiss]"
+        );
+
+        if (result) {
+          alert("✅ User confirmed!");
+        } else {
+          alert("❌ User cancelled.");
+        }
+      }
+
+      function showUpgradeDemo() {
+        const result = confirm(
+          "✨ Upgrade to Pro\n\nプロにアップグレード\n\nFree tier is limited to 3 trading pairs. Upgrade to Pro for unlimited pairs and advanced features!\n\n[Click OK to upgrade, Cancel for later]"
+        );
+
+        if (result) {
+          alert("🚀 Opening settings to enter license key...");
+        } else {
+          alert("👍 Maybe later!");
+        }
+      }
+    </script>
+  </body>
+</html>

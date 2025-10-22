@@ -48,8 +48,12 @@
 - **GSAP Animations** — Smooth loading progress, staggered stats reveal, slide-in details
 - **Detail Panel** — Click any trade for full entry/exit/commission breakdown
 - **localStorage Persistence** — Cached data for instant dashboard loading
+- **Pro License System** 🎫 — Freemium model with Gumroad integration
+  - **Free Tier**: Limited to 3 trading pairs
+  - **Pro ($9.99 lifetime)**: Unlimited pairs + advanced features
 
-> **See**: [`JOURNAL_GUIDE.md`](JOURNAL_GUIDE.md) for complete setup & usage guide
+> **See**: [`JOURNAL_GUIDE.md`](JOURNAL_GUIDE.md) for complete setup & usage guide  
+> **See**: [`LICENSE_SYSTEM.md`](LICENSE_SYSTEM.md) for monetization implementation details
 
 ### Command Palette
 
@@ -169,6 +173,7 @@ npm run build
 - `kinesis-market-tickers` — (Future: custom ticker list)
 - `kinesis-binance-config` — Trading Journal API credentials 📊 **NEW!**
 - `kinesis-trading-journal` — Cached trades and analytics 📊 **NEW!**
+- `kinesis-license` — Pro license key (encrypted) 🎫 **NEW!**
 
 ---
 

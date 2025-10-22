@@ -71,6 +71,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import gsap from 'gsap'
+import { useKinesisAlert } from '../composables/useKinesisAlert'
+
+const { confirm, success: showSuccess } = useKinesisAlert()
 
 const bookmarks = ref([])
 const showAddModal = ref(false)
@@ -126,14 +129,27 @@ const editBookmark = (bookmark) => {
     showAddModal.value = true
 }
 
-const deleteBookmark = (id) => {
-    if (confirm('Delete this bookmark?')) {
+const deleteBookmark = async (id) => {
+    const bookmark = bookmarks.value.find(b => b.id === id)
+    const bookmarkName = bookmark ? bookmark.name : 'this bookmark'
+
+    const confirmed = await confirm(
+        `Delete "${bookmarkName}"? This action cannot be undone.`,
+        'Delete Bookmark',
+        'ブックマーク削除'
+    )
+
+    if (confirmed) {
         bookmarks.value = bookmarks.value.filter(b => b.id !== id)
         saveBookmarks()
+        await showSuccess(`"${bookmarkName}" deleted successfully`, 'Bookmark Deleted', '削除完了')
     }
 }
 
-const saveBookmark = () => {
+const saveBookmark = async () => {
+    const isEditing = !!editingBookmark.value
+    const bookmarkName = formData.value.name || 'Bookmark'
+
     if (editingBookmark.value) {
         // Edit existing
         const index = bookmarks.value.findIndex(b => b.id === editingBookmark.value.id)
@@ -150,6 +166,12 @@ const saveBookmark = () => {
     }
     saveBookmarks()
     closeModal()
+
+    await showSuccess(
+        `"${bookmarkName}" ${isEditing ? 'updated' : 'added'} successfully`,
+        isEditing ? 'Bookmark Updated' : 'Bookmark Added',
+        isEditing ? '更新完了' : '追加完了'
+    )
 }
 
 const closeModal = () => {
