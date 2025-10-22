@@ -54,8 +54,29 @@
             </div>
         </div>
 
+        <!-- History Suggestions Dropdown (Chrome-like) -->
+        <div v-if="isExpanded && filteredCommands.length === 0 && historySuggestions.length > 0" class="history-results">
+            <div class="history-category">
+                <div class="category-title">History & Suggestions</div>
+                <div v-for="(suggestion, index) in historySuggestions" :key="suggestion.id" 
+                    class="history-item"
+                    :class="{ 'selected': selectedHistoryIndex === index }"
+                    @click="selectHistorySuggestion(suggestion)" 
+                    @mouseenter="selectedHistoryIndex = index">
+                    <div class="history-icon">
+                        <component :is="suggestion.icon" :size="18" :stroke-width="2" />
+                    </div>
+                    <div class="history-info">
+                        <div class="history-title">{{ suggestion.title }}</div>
+                        <div class="history-url">{{ suggestion.subtitle }}</div>
+                    </div>
+                    <div class="history-meta">{{ suggestion.meta }}</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Empty State -->
-        <div v-if="isExpanded && filteredCommands.length === 0 && searchQuery" class="empty-state">
+        <div v-if="isExpanded && filteredCommands.length === 0 && historySuggestions.length === 0 && searchQuery" class="empty-state">
             <div class="empty-icon">🔍</div>
             <div class="empty-text">No commands found</div>
             <div class="empty-hint">Press Enter to {{ isURL(searchQuery) ? 'visit website' : 'search on Google' }}</div>
@@ -71,7 +92,8 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import gsap from 'gsap'
 import {
     Flower2, TrendingUp, Bookmark, BarChart3, FileText,
-    Image, RefreshCw, Trash2, Sun, Moon, Search, CheckSquare
+    Image, RefreshCw, Trash2, Sun, Moon, Search, CheckSquare,
+    Globe, Clock, Star
 } from 'lucide-vue-next'
 import { useKinesisAlert } from '../composables/useKinesisAlert'
 
@@ -101,10 +123,12 @@ const inputRef = ref(null)
 const searchQuery = ref('')
 const isExpanded = ref(false)
 const selectedIndex = ref(0)
+const selectedHistoryIndex = ref(0)
 const autocompleteSuggestion = ref('')
 const urlHistory = ref([])
 const searchHistory = ref([])
 const browserHistory = ref([])
+const historySuggestions = ref([])
 
 const emit = defineEmits(['navigate', 'search'])
 
@@ -427,9 +451,103 @@ const calculateAutocomplete = () => {
     autocompleteSuggestion.value = ''
 }
 
+// Generate history suggestions for dropdown
+const generateHistorySuggestions = () => {
+    if (!searchQuery.value) {
+        historySuggestions.value = []
+        return
+    }
+
+    const query = searchQuery.value.toLowerCase()
+    const suggestions = []
+    let id = 0
+
+    // Browser history suggestions (top 5)
+    if (browserHistory.value.length > 0) {
+        const sortedHistory = [...browserHistory.value]
+            .sort((a, b) => (b.visitCount * 10 + b.lastVisitTime / 1000000) - 
+                           (a.visitCount * 10 + a.lastVisitTime / 1000000))
+            .slice(0, 5)
+
+        for (const item of sortedHistory) {
+            try {
+                const url = new URL(item.url)
+                const domain = url.hostname.replace('www.', '')
+                const fullUrl = url.hostname + url.pathname
+                
+                if (domain.includes(query) || fullUrl.includes(query) || 
+                    (item.title && item.title.toLowerCase().includes(query))) {
+                    suggestions.push({
+                        id: id++,
+                        type: 'browser-history',
+                        title: item.title || domain,
+                        subtitle: domain,
+                        url: item.url,
+                        meta: `${item.visitCount} visits`,
+                        icon: Globe
+                    })
+                    if (suggestions.length >= 5) break
+                }
+            } catch (e) {
+                // Skip invalid URLs
+            }
+        }
+    }
+
+    // URL history suggestions (top 3)
+    urlHistory.value.slice(0, 5).forEach(url => {
+        if (url.toLowerCase().includes(query)) {
+            suggestions.push({
+                id: id++,
+                type: 'url-history',
+                title: url,
+                subtitle: 'Recent visit',
+                url: url,
+                meta: '',
+                icon: Clock
+            })
+        }
+    })
+
+    // Search history suggestions (top 3)
+    searchHistory.value.slice(0, 5).forEach(search => {
+        if (search.toLowerCase().includes(query)) {
+            suggestions.push({
+                id: id++,
+                type: 'search-history',
+                title: search,
+                subtitle: 'Google search',
+                url: null,
+                meta: '',
+                icon: Search
+            })
+        }
+    })
+
+    // Limit to 8 total suggestions
+    historySuggestions.value = suggestions.slice(0, 8)
+}
+
+// Select a history suggestion
+const selectHistorySuggestion = (suggestion) => {
+    if (suggestion.type === 'search-history') {
+        // Perform Google search
+        window.location.href = `https://www.google.com/search?q=${encodeURIComponent(suggestion.title)}`
+    } else {
+        // Navigate to URL
+        let url = suggestion.url || suggestion.title
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            url = 'https://' + url
+        }
+        window.location.href = url
+    }
+}
+
 // Handle input change
 const handleInput = () => {
     calculateAutocomplete()
+    generateHistorySuggestions()
+    selectedHistoryIndex.value = 0
 }
 
 // Execute command
@@ -466,6 +584,7 @@ const handleKeydown = (e) => {
         searchQuery.value = searchQuery.value + autocompleteSuggestion.value
         autocompleteSuggestion.value = ''
         calculateAutocomplete()
+        generateHistorySuggestions()
         return
     }
 
@@ -473,6 +592,7 @@ const handleKeydown = (e) => {
     if (e.key === 'Escape') {
         searchQuery.value = ''
         autocompleteSuggestion.value = ''
+        historySuggestions.value = []
         isExpanded.value = false
         inputRef.value?.blur()
         return
@@ -481,14 +601,22 @@ const handleKeydown = (e) => {
     // Arrow Down - navigate down
     if (e.key === 'ArrowDown') {
         e.preventDefault()
-        selectedIndex.value = Math.min(selectedIndex.value + 1, filteredCommands.value.length - 1)
+        if (filteredCommands.value.length > 0) {
+            selectedIndex.value = Math.min(selectedIndex.value + 1, filteredCommands.value.length - 1)
+        } else if (historySuggestions.value.length > 0) {
+            selectedHistoryIndex.value = Math.min(selectedHistoryIndex.value + 1, historySuggestions.value.length - 1)
+        }
         return
     }
 
     // Arrow Up - navigate up
     if (e.key === 'ArrowUp') {
         e.preventDefault()
-        selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
+        if (filteredCommands.value.length > 0) {
+            selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
+        } else if (historySuggestions.value.length > 0) {
+            selectedHistoryIndex.value = Math.max(selectedHistoryIndex.value - 1, 0)
+        }
         return
     }
 
@@ -496,6 +624,8 @@ const handleKeydown = (e) => {
     if (e.key === 'Enter') {
         if (filteredCommands.value.length > 0) {
             executeCommand(filteredCommands.value[selectedIndex.value])
+        } else if (historySuggestions.value.length > 0 && selectedHistoryIndex.value < historySuggestions.value.length) {
+            selectHistorySuggestion(historySuggestions.value[selectedHistoryIndex.value])
         } else if (searchQuery.value) {
             const query = searchQuery.value.trim()
             
@@ -782,6 +912,88 @@ onUnmounted(() => {
     overflow-y: auto;
     animation: slideDown 0.3s var(--ease);
     background-color: white;
+}
+
+/* History Results Dropdown */
+.history-results {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--space-8) var(--space-6) var(--space-8);
+    max-height: 400px;
+    overflow-y: auto;
+    animation: slideDown 0.3s var(--ease);
+    background-color: white;
+}
+
+.history-category {
+    margin-bottom: var(--space-4);
+}
+
+.history-item {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s var(--ease);
+    border: 1px solid transparent;
+}
+
+.history-item:hover,
+.history-item.selected {
+    background: rgba(99, 102, 241, 0.05);
+    border-color: rgba(99, 102, 241, 0.2);
+    transform: translateX(4px);
+}
+
+.history-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: rgba(99, 102, 241, 0.08);
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.history-item.selected .history-icon {
+    background: var(--accent);
+    color: white;
+}
+
+.history-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.history-title {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-url {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-meta {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
 }
 
 @keyframes slideDown {
