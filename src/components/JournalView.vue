@@ -284,10 +284,15 @@
                                 </button>
                             </div>
                         </div>
-                        <button type="button" @click="addSymbol" class="btn-add-symbol">
-                            + Add Trading Pair
-                        </button>
-                        <div class="form-hint">Common pairs: BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, ADAUSDT</div>
+                        <div class="symbol-actions">
+                            <button type="button" @click="addSymbol" class="btn-add-symbol">
+                                + Add Trading Pair
+                            </button>
+                            <button type="button" @click="autoDiscoverPairs" class="btn-discover" :disabled="isDiscovering">
+                                {{ isDiscovering ? 'Discovering...' : '🔍 Auto-Discover Pairs' }}
+                            </button>
+                        </div>
+                        <div class="form-hint">Auto-discover will scan for all pairs you've traded</div>
                     </div>
 
                     <div class="form-actions">
@@ -323,6 +328,7 @@ const {
 
 // State
 const isSyncing = ref(false)
+const isDiscovering = ref(false)
 const hasSyncedBefore = ref(false)
 const syncMessage = ref('Connecting to Binance...')
 const syncDetail = ref('')
@@ -553,6 +559,91 @@ const removeSymbol = async (index) => {
 const validateSymbol = (index) => {
     // Convert to uppercase and remove spaces
     symbolsList.value[index] = symbolsList.value[index].toUpperCase().trim()
+}
+
+// Auto-discover trading pairs
+const autoDiscoverPairs = async () => {
+    if (!config.value.apiKey || !config.value.apiSecret) {
+        await showError('Please enter your API credentials first', 'Missing Credentials', '認証情報がありません')
+        return
+    }
+
+    isDiscovering.value = true
+    
+    try {
+        await showSuccess('Scanning common trading pairs...', 'Discovering', 'スキャン中')
+        
+        // List of most common trading pairs to check
+        const commonPairs = [
+            // USDT pairs (most common)
+            'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 'DOTUSDT',
+            'DOGEUSDT', 'MATICUSDT', 'LINKUSDT', 'UNIUSDT', 'AVAXUSDT', 'LTCUSDT',
+            'ATOMUSDT', 'ETCUSDT', 'FILUSDT', 'TRXUSDT', 'NEARUSDT', 'APTUSDT',
+            // BUSD pairs (backup)
+            'BTCBUSD', 'ETHBUSD', 'BNBBUSD',
+            // BTC pairs
+            'ETHBTC', 'BNBBTC', 'ADABTC'
+        ]
+        
+        const discoveredPairs = []
+        const marketType = config.value.marketType || 'futures'
+        
+        console.log(`🔍 Auto-discovering pairs in ${marketType.toUpperCase()} market...`)
+        
+        for (let i = 0; i < commonPairs.length; i++) {
+            const symbol = commonPairs[i]
+            
+            try {
+                // Try to fetch trades for this symbol
+                const trades = await fetchMyTrades(
+                    symbol,
+                    config.value.apiKey,
+                    config.value.apiSecret,
+                    1, // Only fetch 1 trade to check if any exist
+                    marketType
+                )
+                
+                if (trades.length > 0) {
+                    discoveredPairs.push(symbol)
+                    console.log(`✓ Found trades for ${symbol}`)
+                }
+                
+                // Small delay to respect rate limits
+                await new Promise(resolve => setTimeout(resolve, 100))
+            } catch (error) {
+                // Silently skip symbols that error (likely don't exist or no permission)
+                console.log(`× Skipping ${symbol}:`, error.message)
+            }
+            
+            // Update progress
+            if (i % 5 === 0) {
+                syncDetail.value = `Checked ${i}/${commonPairs.length} pairs...`
+            }
+        }
+        
+        if (discoveredPairs.length === 0) {
+            await showError(
+                'No trading history found for common pairs. You may need to add pairs manually.',
+                'No Trades Found',
+                '取引履歴なし'
+            )
+        } else {
+            // Replace the symbols list with discovered pairs
+            symbolsList.value = [...discoveredPairs]
+            await showSuccess(
+                `Found ${discoveredPairs.length} pairs with trading history: ${discoveredPairs.join(', ')}`,
+                'Discovery Complete',
+                '検出完了'
+            )
+            console.log(`🎉 Discovered ${discoveredPairs.length} trading pairs:`, discoveredPairs)
+        }
+    } catch (error) {
+        console.error('Auto-discovery error:', error)
+        await showError(`Failed to discover pairs: ${error.message}`, 'Discovery Failed', '検出失敗')
+    } finally {
+        isDiscovering.value = false
+        syncDetail.value = ''
+    }
 }
 
 // Save configuration

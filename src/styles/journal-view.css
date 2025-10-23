@@ -727,7 +727,14 @@
   cursor: not-allowed;
 }
 
+.symbol-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
 .btn-add-symbol {
+  flex: 1;
   padding: var(--space-2) var(--space-4);
   background: transparent;
   border: 1px dashed var(--border-color);
@@ -737,13 +744,37 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s var(--ease);
-  width: 100%;
 }
 
 .btn-add-symbol:hover {
   border-color: var(--accent);
   color: var(--accent);
   background: rgba(139, 69, 19, 0.05);
+}
+
+.btn-discover {
+  flex: 1;
+  padding: var(--space-2) var(--space-4);
+  background: linear-gradient(135deg, var(--accent) 0%, #9b7653 100%);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s var(--ease);
+  box-shadow: 0 2px 8px rgba(139, 69, 19, 0.2);
+}
+
+.btn-discover:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 69, 19, 0.3);
+}
+
+.btn-discover:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .form-actions {
