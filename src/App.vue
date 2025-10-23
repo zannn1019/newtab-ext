@@ -37,9 +37,6 @@
                 {{ char }}
             </span>
         </div>
-
-        <!-- Weather Widget -->
-        <WeatherWidget v-if="isPageLoaded" />
     </div>
 </template>
 
@@ -57,7 +54,6 @@ import BackgroundSettings from "./components/BackgroundSettings.vue";
 import AnimatedBackground from "./components/AnimatedBackground.vue";
 import CustomCursor from "./components/CustomCursor.vue";
 import PageLoader from "./components/PageLoader.vue";
-import WeatherWidget from "./components/WeatherWidget.vue";
 
 // Page load state
 const isPageLoaded = ref(false);
