@@ -3,10 +3,6 @@
         <Transition @before-enter="onBeforeEnter" @enter="onEnter" @leave="onLeave">
             <div v-if="isVisible" class="kinesis-alert-overlay" @click="handleOverlayClick">
                 <div class="kinesis-alert-container" @click.stop>
-                    <!-- Japanese decorative lines -->
-                    <div class="alert-decoration-top"></div>
-                    <div class="alert-decoration-bottom"></div>
-
                     <!-- Icon with animation -->
                     <div class="alert-icon-wrapper" ref="iconRef">
                         <div class="alert-icon-pulse"></div>

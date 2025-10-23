@@ -52,7 +52,6 @@
                         </button>
                     </div>
                 </div>
-
                 <div class="stats-grid">
                     <div class="stat-card" data-stat="total-pnl">
                         <div class="stat-label">Total P&L</div>
@@ -100,18 +99,12 @@
                     <h3 class="panel-title">Trade History</h3>
                     <p class="panel-subtitle">取引履歴</p>
                     <div class="filter-controls">
-                        <button 
-                            class="view-toggle" 
-                            :class="{ 'active': viewMode === 'list' }"
-                            @click="viewMode = 'list'"
-                            title="List View">
+                        <button class="view-toggle" :class="{ 'active': viewMode === 'list' }"
+                            @click="viewMode = 'list'" title="List View">
                             <List :size="18" :stroke-width="2" />
                         </button>
-                        <button 
-                            class="view-toggle" 
-                            :class="{ 'active': viewMode === 'calendar' }"
-                            @click="viewMode = 'calendar'"
-                            title="Calendar View">
+                        <button class="view-toggle" :class="{ 'active': viewMode === 'calendar' }"
+                            @click="viewMode = 'calendar'" title="Calendar View">
                             <Calendar :size="18" :stroke-width="2" />
                         </button>
                         <select v-model="filterSymbol" class="filter-select">
@@ -163,18 +156,13 @@
                             <div class="weekday" v-for="day in weekdays" :key="day">{{ day }}</div>
                         </div>
                         <div class="calendar-days">
-                            <div 
-                                v-for="day in calendarDays" 
-                                :key="day.key"
-                                class="calendar-day"
-                                :class="{
+                            <div v-for="day in calendarDays" :key="day.key" class="calendar-day" :class="{
                                     'other-month': !day.isCurrentMonth,
                                     'today': day.isToday,
                                     'has-trades': day.hasTrades,
                                     'profit': day.pnl > 0,
                                     'loss': day.pnl < 0
-                                }"
-                                @click="selectDay(day)">
+                                }" @click="selectDay(day)">
                                 <div class="day-number">{{ day.date }}</div>
                                 <div v-if="day.hasTrades" class="day-pnl">
                                     {{ formatCurrency(day.pnl) }}

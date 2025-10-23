@@ -17,6 +17,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     fetch(request.url, request.options)
       .then((response) => {
         console.log("📡 Response status:", response.status);
+        console.log("📡 Response headers:", {
+          contentType: response.headers.get('content-type'),
+          contentLength: response.headers.get('content-length')
+        });
 
         if (!response.ok) {
           return response.text().then((text) => {
@@ -29,8 +33,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .then((data) => {
         console.log(
           "✅ API Success:",
-          Array.isArray(data) ? `${data.length} items` : "object"
+          Array.isArray(data) ? `${data.length} items` : "object",
+          Array.isArray(data) && data.length > 0
+            ? `First item keys: ${Object.keys(data[0]).join(", ")}`
+            : ""
         );
+
+        // Log if array is empty
+        if (Array.isArray(data) && data.length === 0) {
+          console.warn(
+            "⚠️ API returned empty array - no trades found for this symbol/market"
+          );
+        }
+
         sendResponse({ success: true, data });
       })
       .catch((error) => {

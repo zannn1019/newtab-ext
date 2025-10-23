@@ -149,13 +149,16 @@ export const fetchMyTrades = async (
     };
 
     const signedQuery = await buildSignedQuery(params, apiSecret);
-    
+
     // Use different base URL based on market type
-    const baseUrl = market === "futures" ? BINANCE_FUTURES_BASE : BINANCE_API_BASE;
-    const endpoint = market === "futures" ? "/fapi/v1/userTrades" : "/api/v3/myTrades";
+    const baseUrl =
+      market === "futures" ? BINANCE_FUTURES_BASE : BINANCE_API_BASE;
+    const endpoint =
+      market === "futures" ? "/fapi/v1/userTrades" : "/api/v3/myTrades";
     const url = `${baseUrl}${endpoint}?${signedQuery}`;
 
     console.log(`Fetching ${market.toUpperCase()} trades for ${symbol}...`);
+    console.log(`URL: ${url.substring(0, 80)}...`);
 
     const options = {
       method: "GET",
@@ -166,21 +169,50 @@ export const fetchMyTrades = async (
 
     const trades = await callViaBackground(url, options);
 
-    console.log(`✅ ${symbol} (${market.toUpperCase()}) returned ${trades.length} trades`);
+    // Log the response for debugging
+    console.log(`✅ ${symbol} (${market.toUpperCase()}) API Response:`, {
+      isArray: Array.isArray(trades),
+      length: trades.length,
+      firstTrade: trades[0] || null,
+    });
+
+    if (!Array.isArray(trades)) {
+      console.error(
+        `❌ ${symbol} (${market}): Response is not an array:`,
+        trades
+      );
+      return [];
+    }
+
+    if (trades.length === 0) {
+      console.log(
+        `⚠️ ${symbol} (${market}): Empty array returned (no trades found)`
+      );
+      return [];
+    }
+
+    console.log(
+      `✅ ${symbol} (${market.toUpperCase()}) returned ${trades.length} trades`
+    );
 
     return trades.map((trade) => ({
       symbol: trade.symbol,
       orderId: trade.orderId,
-      side: market === "futures" ? trade.side : (trade.isBuyer ? "BUY" : "SELL"),
+      side: market === "futures" ? trade.side : trade.isBuyer ? "BUY" : "SELL",
       price: trade.price,
       qty: trade.qty,
       commission: trade.commission,
       commissionAsset: trade.commissionAsset,
       time: trade.time,
       isMaker: trade.isMaker,
+      market: market, // Add market type to identify the source
     }));
   } catch (error) {
     console.error(`❌ Failed to fetch ${market} trades for ${symbol}:`, error);
+    console.error(`Error details:`, {
+      message: error.message,
+      stack: error.stack?.substring(0, 200),
+    });
     throw error;
   }
 };
@@ -244,7 +276,7 @@ export const fetchAllTrades = async (
   apiKey,
   apiSecret,
   userSymbols = [],
-  marketType = 'spot',
+  marketType = "spot",
   onProgress
 ) => {
   try {
@@ -267,37 +299,79 @@ export const fetchAllTrades = async (
 
         try {
           // Check which markets to try based on marketType setting
-          if (marketType === 'spot' || marketType === 'both') {
-            const trades = await fetchMyTrades(symbol, apiKey, apiSecret, 1000, 'spot');
+          let spotTradesCount = 0;
+          let futuresTradesCount = 0;
 
-            if (trades.length > 0) {
-              allTrades.push(...trades);
-              foundSymbols.add(symbol);
-              console.log(`   ✅ ${symbol}: Found ${trades.length} trades (SPOT)`);
-              if (onProgress) onProgress(`✓ ${symbol}: ${trades.length} spot trades`);
-            } else {
-              console.log(`   ⚠️ ${symbol}: No SPOT trades found`);
+          // Try SPOT market first
+          if (marketType === "spot" || marketType === "both") {
+            try {
+              const trades = await fetchMyTrades(
+                symbol,
+                apiKey,
+                apiSecret,
+                1000,
+                "spot"
+              );
+
+              if (trades.length > 0) {
+                allTrades.push(...trades);
+                foundSymbols.add(symbol);
+                spotTradesCount = trades.length;
+                console.log(
+                  `   ✅ ${symbol}: Found ${trades.length} trades (SPOT)`
+                );
+                if (onProgress)
+                  onProgress(`✓ ${symbol}: ${trades.length} spot trades`);
+              } else {
+                console.log(`   ⚠️ ${symbol}: No SPOT trades found`);
+              }
+            } catch (spotError) {
+              console.log(`   ℹ️ SPOT error for ${symbol}:`, spotError.message);
             }
           }
 
-          // Try FUTURES if it's futures or both
-          if (marketType === 'futures' || (marketType === 'both' && allTrades.length === 0)) {
+          // Try FUTURES market
+          if (marketType === "futures" || marketType === "both") {
             console.log(`   🔄 Checking FUTURES for ${symbol}...`);
-            
+
             try {
-              const futuresTrades = await fetchMyTrades(symbol, apiKey, apiSecret, 1000, 'futures');
-              
+              const futuresTrades = await fetchMyTrades(
+                symbol,
+                apiKey,
+                apiSecret,
+                1000,
+                "futures"
+              );
+
               if (futuresTrades.length > 0) {
                 allTrades.push(...futuresTrades);
                 foundSymbols.add(symbol);
-                console.log(`   ✅ ${symbol}: Found ${futuresTrades.length} trades (FUTURES)`);
-                if (onProgress) onProgress(`✓ ${symbol}: ${futuresTrades.length} futures trades`);
+                futuresTradesCount = futuresTrades.length;
+                console.log(
+                  `   ✅ ${symbol}: Found ${futuresTrades.length} trades (FUTURES)`
+                );
+                if (onProgress)
+                  onProgress(
+                    `✓ ${symbol}: ${futuresTrades.length} futures trades`
+                  );
               } else {
                 console.log(`   ⚠️ ${symbol}: No FUTURES trades found`);
               }
             } catch (futuresError) {
-              console.log(`   ℹ️ FUTURES not available for ${symbol}:`, futuresError.message);
+              console.log(
+                `   ℹ️ FUTURES not available for ${symbol}:`,
+                futuresError.message
+              );
             }
+          }
+
+          // Log combined results for this symbol
+          if (spotTradesCount > 0 || futuresTradesCount > 0) {
+            console.log(
+              `   📊 ${symbol} total: ${spotTradesCount} spot + ${futuresTradesCount} futures = ${
+                spotTradesCount + futuresTradesCount
+              } trades`
+            );
           }
 
           await new Promise((resolve) => setTimeout(resolve, 150));
