@@ -2,7 +2,7 @@
     <div class="fear-greed">
         <!-- Japanese decoration -->
         <div class="japanese-decoration">センチメント</div>
-        
+
         <div class="widget-header">
             <div class="header-content">
                 <h2>Market Sentiment</h2>
@@ -27,7 +27,7 @@
                         {{ indexData.value_classification }}
                     </div>
                 </div>
-                
+
                 <!-- Horizontal bar indicator -->
                 <div class="gauge-bar">
                     <div class="gauge-fill" :style="{ width: indexData.value + '%', background: indexColor }"></div>

@@ -2,7 +2,7 @@
     <div class="economic-calendar">
         <!-- Japanese decoration -->
         <div class="japanese-decoration">カレンダー</div>
-        
+
         <div class="widget-header">
             <div class="header-content">
                 <h2>Calendar</h2>
@@ -221,6 +221,7 @@ onMounted(() => {
     from {
         transform: rotate(0deg);
     }
+
     to {
         transform: rotate(360deg);
     }
