@@ -52,41 +52,41 @@ const onLoadComplete = () => {
 onMounted(() => {
     const tl = gsap.timeline()
 
-    // Animate each letter of ZAN
+    // Animate each letter of ZAN (faster)
     tl.from('.logo-z', {
         opacity: 0,
         scale: 0,
         rotation: -180,
-        duration: 0.6,
+        duration: 0.4,
         ease: 'back.out(1.7)'
     })
         .from('.logo-a', {
             opacity: 0,
             scale: 0,
             rotation: 180,
-            duration: 0.6,
+            duration: 0.4,
             ease: 'back.out(1.7)'
-        }, '-=0.4')
+        }, '-=0.3')
         .from('.logo-n', {
             opacity: 0,
             scale: 0,
             rotation: -180,
-            duration: 0.6,
+            duration: 0.4,
             ease: 'back.out(1.7)'
-        }, '-=0.4')
+        }, '-=0.3')
 
     // Animate Japanese character
     tl.from('.logo-japanese', {
         opacity: 0,
         y: 30,
-        duration: 0.8,
+        duration: 0.5,
         ease: 'power3.out'
-    }, '-=0.3')
+    }, '-=0.2')
 
-    // Pulse logo
+    // Pulse logo (faster)
     tl.to('.logo-text', {
         scale: 1.1,
-        duration: 0.4,
+        duration: 0.3,
         ease: 'power2.inOut',
         yoyo: true,
         repeat: 1
@@ -96,26 +96,26 @@ onMounted(() => {
     tl.from('.loader-title', {
         opacity: 0,
         y: 20,
-        duration: 0.6,
-        ease: 'power3.out'
-    }, '-=0.3')
-        .from('.loader-subtitle', {
-            opacity: 0,
-            y: 10,
-            duration: 0.4,
-            ease: 'power3.out'
-        }, '-=0.3')
-
-    // Animate progress bar
-    tl.from('.loader-progress', {
-        scaleX: 0,
-        transformOrigin: 'left',
         duration: 0.4,
         ease: 'power3.out'
     }, '-=0.2')
+        .from('.loader-subtitle', {
+            opacity: 0,
+            y: 10,
+            duration: 0.3,
+            ease: 'power3.out'
+        }, '-=0.2')
+
+    // Animate progress bar (faster)
+    tl.from('.loader-progress', {
+        scaleX: 0,
+        transformOrigin: 'left',
+        duration: 0.3,
+        ease: 'power3.out'
+    }, '-=0.1')
         .to(progressBarRef.value, {
             width: '100%',
-            duration: 1.5,
+            duration: 0.8,
             ease: 'power2.inOut'
         })
 
@@ -123,28 +123,28 @@ onMounted(() => {
     tl.to('.particle', {
         scale: 1,
         opacity: 1,
-        stagger: 0.05,
-        duration: 0.5,
+        stagger: 0.03,
+        duration: 0.3,
         ease: 'back.out(1.7)'
-    }, '-=1')
+    }, '-=0.6')
 
-    // Fade out everything
+    // Fade out everything (faster)
     tl.to('.loader-content', {
         opacity: 0,
         y: -30,
-        duration: 0.6,
+        duration: 0.4,
         ease: 'power3.in'
-    }, '+=0.3')
+    }, '+=0.1')
         .to('.particle', {
             scale: 0,
             opacity: 0,
-            stagger: 0.02,
-            duration: 0.4,
+            stagger: 0.01,
+            duration: 0.3,
             ease: 'power2.in'
-        }, '-=0.4')
+        }, '-=0.3')
         .to('.page-loader', {
             opacity: 0,
-            duration: 0.4,
+            duration: 0.3,
             ease: 'power2.inOut',
             onComplete: () => {
                 isLoading.value = false
