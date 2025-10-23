@@ -93,7 +93,7 @@ import gsap from 'gsap'
 import {
     Flower2, TrendingUp, Bookmark, BarChart3, FileText,
     Image, RefreshCw, Trash2, Sun, Moon, Search, CheckSquare,
-    Globe, Clock, Star
+    Globe, Clock, Star, Newspaper
 } from 'lucide-vue-next'
 import { useKinesisAlert } from '../composables/useKinesisAlert'
 
@@ -107,7 +107,8 @@ const iconComponents = {
     '📊': BarChart3,
     '✅': CheckSquare,
     '📝': FileText,
-    '🖼️': Image,
+    '�': Newspaper,
+    '�🖼️': Image,
     '🔄': RefreshCw,
     '🗑️': Trash2,
     '☀️': Sun,
@@ -256,6 +257,17 @@ const commands = ref([
         key: 'T',
         keywords: ['tasks', 'todo', 'checklist', 'productivity', 'manage'],
         action: () => emit('navigate', 'tasks')
+    },
+    {
+        id: 'nav-fundamentals',
+        name: 'Fundamentals',
+        nameJP: '基本分析',
+        description: 'Crypto news, events, and sentiment',
+        icon: '📰',
+        category: 'Trading',
+        key: 'F',
+        keywords: ['fundamentals', 'news', 'events', 'calendar', 'fear', 'greed', 'analysis'],
+        action: () => emit('navigate', 'fundamentals')
     },
     {
         id: 'nav-notes',
