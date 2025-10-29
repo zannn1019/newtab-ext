@@ -37,6 +37,9 @@
                 {{ char }}
             </span>
         </div>
+
+        <!-- Global Music Player Bar -->
+        <GlobalMusicPlayer v-if="isPageLoaded && currentView != 'music'" @navigate="handleNavigation" />
     </div>
 </template>
 
@@ -50,11 +53,13 @@ import BookmarksView from "./components/BookmarksView.vue";
 import JournalView from "./components/JournalView.vue";
 import TaskView from "./components/TaskView.vue";
 import FundamentalsView from "./components/FundamentalsView.vue";
+import MusicPlayer from "./components/MusicPlayer.vue";
 import QuickNotes from "./components/QuickNotes.vue";
 import BackgroundSettings from "./components/BackgroundSettings.vue";
 import AnimatedBackground from "./components/AnimatedBackground.vue";
 import CustomCursor from "./components/CustomCursor.vue";
 import PageLoader from "./components/PageLoader.vue";
+import GlobalMusicPlayer from "./components/GlobalMusicPlayer.vue";
 
 // Page load state
 const isPageLoaded = ref(false);
@@ -175,6 +180,7 @@ const viewComponents = {
     journal: JournalView,
     tasks: TaskView,
     fundamentals: FundamentalsView,
+    music: MusicPlayer,
 };
 
 const currentViewComponent = computed(() => viewComponents[currentView.value]);
@@ -361,7 +367,7 @@ const applyBackground = (settings) => {
 
 /**
  * Global Keyboard Handler
- * Listens for M, K, B, J, Z, T, F and Escape keys
+ * Listens for M, K, B, J, Z, T, F, P and Escape keys
  */
 const handleGlobalKeydown = (e) => {
     // Don't trigger if user is typing in an input/textarea
@@ -401,6 +407,12 @@ const handleGlobalKeydown = (e) => {
     if (e.key.toLowerCase() === 'f' && !isInInput) {
         e.preventDefault();
         handleNavigation('fundamentals');
+    }
+
+    // 'p' key - Navigate to Music Player view
+    if (e.key.toLowerCase() === 'p' && !isInInput) {
+        e.preventDefault();
+        handleNavigation('music');
     }
 
     // 'z' key - Navigate to Zen view

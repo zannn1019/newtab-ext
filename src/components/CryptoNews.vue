@@ -1,75 +1,93 @@
 <template>
-    <div class="crypto-news" ref="containerRef">
-        <!-- Animated particles background -->
-        <div class="particles">
-            <div v-for="i in 15" :key="i" class="particle" :style="{ '--particle-index': i }"></div>
+    <div class="news-wrapper">
+        <!-- Decorative corner accent -->
+        <div class="corner-accent top-left"></div>
+        <div class="corner-accent bottom-right"></div>
+
+        <!-- Vertical text decoration -->
+        <div class="vertical-text">
+            暗号通貨
         </div>
 
-        <!-- Glowing border effect -->
-        <div class="glow-border"></div>
-
-        <!-- Japanese decoration with animation -->
-        <div class="japanese-decoration" ref="japaneseRef">
-            <span v-for="(char, i) in 'ニュース'.split('')" :key="i" class="jp-char">{{ char }}</span>
-        </div>
-
-        <div class="widget-header" ref="headerRef">
-            <div class="header-content">
-                <h2 class="title-glitch" data-text="News">News</h2>
-                <span class="subtitle">暗号通貨</span>
+        <!-- Header -->
+        <header class="news-header">
+            <div class="header-top">
+                <div class="title-group">
+                    <span class="title-accent">━</span>
+                    <h2 class="title">NEWS</h2>
+                </div>
+                <button @click="refreshNews" class="refresh-button" :disabled="isLoading">
+                    <span :class="{ rotating: isLoading }">↻</span>
+                </button>
             </div>
-            <button @click="refreshNews" class="btn-refresh" :disabled="isLoading">
-                <span :class="{ spinning: isLoading }">↻</span>
-            </button>
+            <p class="subtitle">最新情報</p>
+        </header>
+
+        <!-- Error state -->
+        <div v-if="error" class="state-message error">
+            <span class="state-icon">!</span>
+            <p>{{ error }}</p>
         </div>
 
-        <div v-if="error" class="error-message">
-            {{ error }}
+        <!-- Loading state -->
+        <div v-else-if="isLoading && news.length === 0" class="state-message loading">
+            <span class="loading-spinner"></span>
+            <p>読み込み中...</p>
         </div>
 
-        <div v-else-if="isLoading && news.length === 0" class="loading">
-            <div class="loading-orb"></div>
-            <div class="loading-text">読み込み中</div>
-        </div>
-
-        <div v-else class="news-list" ref="newsListRef">
-            <a 
-                v-for="(article, index) in news" 
-                :key="article.id" 
-                :href="article.url" 
-                target="_blank" 
-                class="news-item"
-                :style="{ '--item-index': index }"
-            >
-                <div class="news-marker">
-                    <div class="marker-pulse"></div>
+        <!-- News content -->
+        <div v-else class="news-content">
+            <!-- Featured highlight -->
+            <section class="featured-section" v-if="news[0]">
+                <div class="section-label">
+                    <span class="label-dot"></span>
+                    <span class="label-text">FEATURED</span>
+                    <span class="label-line"></span>
                 </div>
-                <div class="news-content">
-                    <h3 class="news-title">{{ article.title }}</h3>
-                    <div class="news-meta">
-                        <span class="news-source">{{ article.source }}</span>
-                        <span class="news-divider">・</span>
-                        <span class="news-time">{{ formatTime(article.published_on) }}</span>
+
+                <a :href="news[0].url" target="_blank" class="featured-card">
+                    <div class="card-number">01</div>
+                    <h3 class="card-title">{{ news[0].title }}</h3>
+                    <div class="card-meta">
+                        <span class="meta-badge">{{ news[0].source }}</span>
+                        <span class="meta-separator">|</span>
+                        <span class="meta-time">{{ formatTime(news[0].published_on) }}</span>
                     </div>
-                </div>
-                <div class="news-arrow">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <path d="M7 3L15 10L7 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-            </a>
+                    <div class="card-indicator">
+                        <span class="indicator-line"></span>
+                        <span class="indicator-arrow">→</span>
+                    </div>
+                </a>
+            </section>
+
+            <!-- Regular news list -->
+            <section class="news-list">
+                <a v-for="(item, index) in news.slice(1, 6)" :key="item.id" :href="item.url" target="_blank"
+                    class="news-card" :style="{ animationDelay: `${index * 0.05}s` }">
+                    <div class="card-left">
+                        <span class="card-index">{{ String(index + 2).padStart(2, '0') }}</span>
+                        <div class="card-divider"></div>
+                    </div>
+                    <div class="card-body">
+                        <h4 class="card-headline">{{ item.title }}</h4>
+                        <div class="card-info">
+                            <span class="info-source">{{ item.source }}</span>
+                            <span class="info-dot">•</span>
+                            <span class="info-time">{{ formatTime(item.published_on) }}</span>
+                        </div>
+                    </div>
+                    <div class="card-right">
+                        <span class="card-chevron">›</span>
+                    </div>
+                </a>
+            </section>
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
-import gsap from 'gsap'
+import { ref, onMounted } from 'vue'
 
-const containerRef = ref(null)
-const japaneseRef = ref(null)
-const headerRef = ref(null)
-const newsListRef = ref(null)
 const news = ref([])
 const isLoading = ref(false)
 const error = ref('')
@@ -95,38 +113,12 @@ const fetchNews = async () => {
                 source: article.source,
                 published_on: article.published_on
             }))
-            
-            // Animate news items on load
-            nextTick(() => {
-                animateNewsItems()
-            })
         }
     } catch (err) {
         console.error('Error fetching crypto news:', err)
         error.value = 'Failed to load news. Please try again.'
     } finally {
         isLoading.value = false
-    }
-}
-
-const animateNewsItems = () => {
-    const items = newsListRef.value?.querySelectorAll('.news-item')
-    if (items) {
-        gsap.fromTo(items,
-            {
-                opacity: 0,
-                x: -30,
-                rotationY: -15
-            },
-            {
-                opacity: 1,
-                x: 0,
-                rotationY: 0,
-                duration: 0.6,
-                stagger: 0.08,
-                ease: 'power3.out'
-            }
-        )
     }
 }
 
@@ -153,523 +145,689 @@ const formatTime = (timestamp) => {
 onMounted(() => {
     fetchNews()
     setInterval(fetchNews, 5 * 60 * 1000)
-    
-    // Animate Japanese characters
-    if (japaneseRef.value) {
-        const chars = japaneseRef.value.querySelectorAll('.jp-char')
-        gsap.fromTo(chars,
-            { opacity: 0, y: -20, rotationX: -90 },
-            { 
-                opacity: 0.3, 
-                y: 0, 
-                rotationX: 0,
-                duration: 0.8,
-                stagger: 0.1,
-                ease: 'back.out(1.4)'
-            }
-        )
-    }
 })
 </script>
 
 <style scoped>
-.crypto-news {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(250, 250, 252, 0.9) 100%);
-    backdrop-filter: blur(20px) saturate(180%);
-    border-radius: 16px;
-    border: 1px solid rgba(139, 69, 19, 0.1);
+.news-wrapper {
+    background: linear-gradient(165deg,
+            rgba(255, 255, 255, 0.98) 0%,
+            rgba(254, 252, 250, 0.95) 50%,
+            rgba(252, 249, 246, 0.98) 100%);
+    backdrop-filter: blur(30px);
+    border: 1px solid rgba(139, 69, 19, 0.08);
     padding: var(--space-6);
     height: 100%;
     display: flex;
     flex-direction: column;
     position: relative;
     overflow: hidden;
-    box-shadow: 
-        0 8px 32px rgba(139, 69, 19, 0.08),
-        0 2px 8px rgba(0, 0, 0, 0.04),
+    box-shadow:
+        0 2px 8px rgba(139, 69, 19, 0.03),
+        0 8px 24px rgba(139, 69, 19, 0.05),
         inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.crypto-news:hover {
-    box-shadow: 
-        0 12px 48px rgba(139, 69, 19, 0.12),
-        0 4px 16px rgba(0, 0, 0, 0.06),
-        inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    transform: translateY(-2px);
-}
-
-/* Animated particles */
-.particles {
+/* Corner accents */
+.corner-accent {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
+    width: 32px;
+    height: 32px;
     pointer-events: none;
 }
 
-.particle {
-    position: absolute;
-    width: 4px;
-    height: 4px;
-    background: radial-gradient(circle, rgba(139, 69, 19, 0.4), transparent);
-    border-radius: 50%;
-    animation: float calc(8s + var(--particle-index) * 1s) infinite ease-in-out;
-    opacity: 0;
-    left: calc(var(--particle-index) * 7%);
-    top: calc(var(--particle-index) * 6%);
-}
-
-@keyframes float {
-    0%, 100% {
-        transform: translate(0, 0) scale(1);
-        opacity: 0;
-    }
-    10% {
-        opacity: 0.6;
-    }
-    50% {
-        transform: translate(20px, -30px) scale(1.5);
-        opacity: 0.3;
-    }
-    90% {
-        opacity: 0.6;
-    }
-}
-
-/* Glowing border effect */
-.glow-border {
-    position: absolute;
-    top: -2px;
-    left: -2px;
-    right: -2px;
-    bottom: -2px;
-    background: linear-gradient(
-        45deg,
-        rgba(139, 69, 19, 0) 0%,
-        rgba(139, 69, 19, 0.3) 50%,
-        rgba(139, 69, 19, 0) 100%
-    );
-    border-radius: 16px;
-    opacity: 0;
-    transition: opacity 0.4s ease;
-    pointer-events: none;
-    z-index: -1;
-}
-
-.crypto-news:hover .glow-border {
-    opacity: 1;
-    animation: rotate-glow 8s linear infinite;
-}
-
-@keyframes rotate-glow {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Japanese decoration */
-.japanese-decoration {
-    position: absolute;
-    top: var(--space-4);
-    right: var(--space-4);
-    font-family: var(--font-serif);
-    font-size: 0.875rem;
-    letter-spacing: 0.4em;
-    color: var(--accent);
-    writing-mode: vertical-rl;
-    text-orientation: upright;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.jp-char {
-    display: inline-block;
-    opacity: 0.3;
-    transition: all 0.3s ease;
-    text-shadow: 0 0 20px rgba(139, 69, 19, 0.3);
-}
-
-.crypto-news:hover .jp-char {
-    opacity: 0.6;
-    text-shadow: 0 0 30px rgba(139, 69, 19, 0.5);
-}
-
-.widget-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: var(--space-5);
-    padding-bottom: var(--space-4);
-    border-bottom: 1px solid rgba(139, 69, 19, 0.15);
-    position: relative;
-}
-
-.widget-header::after {
+.corner-accent::before,
+.corner-accent::after {
     content: '';
     position: absolute;
-    bottom: -1px;
-    left: 0;
-    height: 1px;
-    width: 0;
-    background: linear-gradient(90deg, var(--accent), transparent);
-    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--accent);
+    opacity: 0.15;
 }
 
-.crypto-news:hover .widget-header::after {
+.corner-accent::before {
     width: 100%;
+    height: 1px;
 }
 
-.header-content {
+.corner-accent::after {
+    width: 1px;
+    height: 100%;
+}
+
+.top-left {
+    top: 0;
+    left: 0;
+}
+
+.top-left::before {
+    top: 0;
+    left: 0;
+}
+
+.top-left::after {
+    top: 0;
+    left: 0;
+}
+
+.bottom-right {
+    bottom: 0;
+    right: 0;
+}
+
+.bottom-right::before {
+    bottom: 0;
+    right: 0;
+}
+
+.bottom-right::after {
+    bottom: 0;
+    right: 0;
+}
+
+/* Vertical text decoration */
+.vertical-text {
+    position: absolute;
+    right: var(--space-4);
+    top: 50%;
+    transform: translateY(-50%);
+    writing-mode: vertical-rl;
+    font-family: var(--font-serif);
+    font-size: 0.75rem;
+    letter-spacing: 0.5em;
+    color: var(--accent);
+    opacity: 0.12;
+    font-weight: 300;
+    pointer-events: none;
+    user-select: none;
+    transition: opacity 0.3s ease;
+}
+
+.news-wrapper:hover .vertical-text {
+    opacity: 0.18;
+}
+
+/* Header */
+.news-header {
+    margin-bottom: var(--space-6);
+    position: relative;
+    z-index: 1;
+}
+
+.header-top {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-2);
 }
 
-.title-glitch {
+.title-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.title-accent {
+    color: var(--accent);
+    font-size: 0.875rem;
+    opacity: 0.6;
+}
+
+.title {
     font-family: var(--font-serif);
     font-size: 1.5rem;
-    font-weight: 400;
+    font-weight: 300;
     color: var(--text-primary);
     margin: 0;
-    letter-spacing: 0.05em;
-    position: relative;
-    animation: title-glow 3s ease-in-out infinite;
-}
-
-@keyframes title-glow {
-    0%, 100% {
-        text-shadow: 0 0 20px rgba(139, 69, 19, 0.2);
-    }
-    50% {
-        text-shadow: 0 0 30px rgba(139, 69, 19, 0.4);
-    }
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
 }
 
 .subtitle {
     font-family: var(--font-serif);
     font-size: 0.75rem;
     color: var(--text-secondary);
+    margin: 0;
+    padding-left: calc(var(--space-3) + 0.875rem);
     opacity: 0.6;
     letter-spacing: 0.2em;
-    animation: fade-in-up 0.8s ease-out 0.2s both;
 }
 
-@keyframes fade-in-up {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 0.6;
-        transform: translateY(0);
-    }
-}
-
-.btn-refresh {
-    width: 36px;
-    height: 36px;
-    border: 2px solid rgba(139, 69, 19, 0.2);
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(250, 250, 252, 0.6));
-    color: var(--accent);
-    font-size: 1.1rem;
-    cursor: pointer;
+.refresh-button {
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(139, 69, 19, 0.15);
+    background: rgba(255, 255, 255, 0.5);
     border-radius: 50%;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    color: var(--accent);
+    font-size: 1.125rem;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 8px rgba(139, 69, 19, 0.1);
+    transition: all 0.3s ease;
 }
 
-.btn-refresh:hover:not(:disabled) {
-    background: linear-gradient(135deg, rgba(139, 69, 19, 0.1), rgba(139, 69, 19, 0.05));
+.refresh-button:hover:not(:disabled) {
+    background: rgba(139, 69, 19, 0.05);
     border-color: var(--accent);
-    transform: scale(1.1) rotate(15deg);
-    box-shadow: 0 4px 16px rgba(139, 69, 19, 0.2);
+    transform: rotate(90deg);
 }
 
-.btn-refresh:active {
-    transform: scale(0.95);
-}
-
-.btn-refresh:disabled {
-    opacity: 0.5;
+.refresh-button:disabled {
+    opacity: 0.4;
     cursor: not-allowed;
 }
 
-.spinning {
+.rotating {
     display: inline-block;
-    animation: spin 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation: smooth-rotate 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+@keyframes smooth-rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
-.error-message {
-    padding: var(--space-4);
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.04));
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    border-radius: 8px;
-    color: #dc2626;
-    font-size: 0.8125rem;
-    text-align: center;
-    font-family: var(--font-serif);
-}
-
-/* Loading state */
-.loading {
-    padding: var(--space-8);
+/* State messages */
+.state-message {
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--space-4);
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-6);
 }
 
-.loading-orb {
-    width: 60px;
-    height: 60px;
+.state-message.error {
+    background: rgba(239, 68, 68, 0.03);
+    border: 1px dashed rgba(239, 68, 68, 0.2);
+}
+
+.state-icon {
+    width: 32px;
+    height: 32px;
+    background: #dc2626;
+    color: white;
     border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, rgba(139, 69, 19, 0.3), rgba(139, 69, 19, 0.1));
-    position: relative;
-    animation: pulse-orb 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: bold;
 }
 
-.loading-orb::before {
+.state-message p {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.loading-spinner {
+    width: 36px;
+    height: 36px;
+    border: 2px solid rgba(139, 69, 19, 0.1);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin-loader 0.8s linear infinite;
+}
+
+@keyframes spin-loader {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.state-message.loading p {
+    letter-spacing: 0.3em;
+    opacity: 0.6;
+}
+
+/* News content */
+.news-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    overflow-y: auto;
+    padding-right: var(--space-2);
+}
+
+.news-content::-webkit-scrollbar {
+    width: 3px;
+}
+
+.news-content::-webkit-scrollbar-track {
+    background: rgba(139, 69, 19, 0.04);
+}
+
+.news-content::-webkit-scrollbar-thumb {
+    background: rgba(139, 69, 19, 0.15);
+    border-radius: 2px;
+}
+
+.news-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 69, 19, 0.25);
+}
+
+/* Featured section */
+.featured-section {
+    margin-bottom: var(--space-4);
+}
+
+.section-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.label-dot {
+    width: 4px;
+    height: 4px;
+    background: var(--accent);
+    border-radius: 50%;
+}
+
+.label-text {
+    font-family: var(--font-serif);
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+.label-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg,
+            rgba(139, 69, 19, 0.2) 0%,
+            transparent 100%);
+}
+
+.featured-card {
+    display: block;
+    padding: var(--space-6);
+    background: white;
+    border: 1px solid rgba(139, 69, 19, 0.1);
+    text-decoration: none;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+.featured-card::before {
     content: '';
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 80%;
-    height: 80%;
-    border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.6), transparent);
-    animation: rotate 3s linear infinite;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+            var(--accent) 0%,
+            transparent 50%);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes pulse-orb {
-    0%, 100% {
-        transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(139, 69, 19, 0.4);
-    }
-    50% {
-        transform: scale(1.05);
-        box-shadow: 0 0 0 15px rgba(139, 69, 19, 0);
-    }
+.featured-card:hover::before {
+    transform: scaleX(1);
 }
 
-@keyframes rotate {
-    from { transform: translate(-50%, -50%) rotate(0deg); }
-    to { transform: translate(-50%, -50%) rotate(360deg); }
+.featured-card:hover {
+    background: rgba(255, 255, 255, 0.98);
+    border-color: rgba(139, 69, 19, 0.15);
+    transform: translateY(-3px);
+    box-shadow:
+        0 4px 16px rgba(139, 69, 19, 0.08),
+        0 8px 32px rgba(139, 69, 19, 0.06);
 }
 
-.loading-text {
-    color: var(--text-secondary);
-    font-size: 0.875rem;
+.card-number {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    opacity: 0.4;
+    margin-bottom: var(--space-2);
+    font-weight: 600;
+}
+
+.card-title {
     font-family: var(--font-serif);
-    letter-spacing: 0.2em;
-    opacity: 0.6;
-    animation: fade-pulse 2s ease-in-out infinite;
+    font-size: 1.125rem;
+    font-weight: 400;
+    line-height: 1.6;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-3) 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
-@keyframes fade-pulse {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 0.8; }
+.card-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.meta-badge {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(139, 69, 19, 0.08);
+    padding: var(--space-1) var(--space-2);
+    border-radius: 2px;
+}
+
+.meta-separator {
+    color: var(--text-secondary);
+    opacity: 0.3;
+}
+
+.meta-time {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.card-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.indicator-line {
+    flex: 1;
+    height: 1px;
+    background: rgba(139, 69, 19, 0.1);
+    transition: all 0.3s ease;
+}
+
+.featured-card:hover .indicator-line {
+    background: rgba(139, 69, 19, 0.2);
+}
+
+.indicator-arrow {
+    font-size: 0.875rem;
+    color: var(--accent);
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.featured-card:hover .indicator-arrow {
+    opacity: 1;
+    transform: translateX(0);
 }
 
 /* News list */
 .news-list {
     display: flex;
     flex-direction: column;
-    gap: 0;
-    overflow-y: auto;
-    flex: 1;
-    padding-right: var(--space-2);
+    gap: var(--space-2);
 }
 
-.news-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.news-list::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.02);
-    border-radius: 3px;
-}
-
-.news-list::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, rgba(139, 69, 19, 0.3), rgba(139, 69, 19, 0.2));
-    border-radius: 3px;
-    transition: background 0.3s ease;
-}
-
-.news-list::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, rgba(139, 69, 19, 0.5), rgba(139, 69, 19, 0.4));
-}
-
-.news-item {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-4);
-    padding: var(--space-4) var(--space-3);
+.news-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(139, 69, 19, 0.06);
     text-decoration: none;
-    border-bottom: 1px solid rgba(139, 69, 19, 0.08);
-    position: relative;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    transform-style: preserve-3d;
-    perspective: 1000px;
+    animation: slide-up 0.4s ease-out both;
 }
 
-.news-item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 3px;
-    height: 100%;
-    background: linear-gradient(180deg, var(--accent), rgba(139, 69, 19, 0.3));
-    transform: scaleY(0);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.6, 1);
-    transform-origin: top;
-}
-
-.news-item:hover::before {
-    transform: scaleY(1);
-}
-
-.news-item:hover {
-    padding-left: var(--space-5);
-    background: linear-gradient(90deg, rgba(139, 69, 19, 0.03), transparent);
-    transform: translateZ(10px);
-}
-
-.news-item:last-child {
-    border-bottom: none;
-}
-
-.news-marker {
-    position: relative;
-    width: 12px;
-    height: 12px;
-    margin-top: 6px;
-    flex-shrink: 0;
-}
-
-.marker-pulse {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(circle, var(--accent), rgba(139, 69, 19, 0.3));
-    border-radius: 50%;
-    animation: pulse-marker 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    animation-delay: calc(var(--item-index) * 0.1s);
-}
-
-.marker-pulse::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 50%;
-    height: 50%;
-    background: rgba(255, 255, 255, 0.8);
-    border-radius: 50%;
-}
-
-@keyframes pulse-marker {
-    0%, 100% {
-        transform: scale(1);
-        opacity: 0.6;
+@keyframes slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
     }
-    50% {
-        transform: scale(1.3);
+
+    to {
         opacity: 1;
+        transform: translateY(0);
     }
 }
 
-.news-content {
-    flex: 1;
+.news-card:hover {
+    background: white;
+    border-color: rgba(139, 69, 19, 0.12);
+    transform: translateX(4px);
+    box-shadow: 0 2px 12px rgba(139, 69, 19, 0.06);
+}
+
+.card-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.card-index {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--accent);
+    opacity: 0.3;
+    transition: opacity 0.3s ease;
+}
+
+.news-card:hover .card-index {
+    opacity: 0.7;
+}
+
+.card-divider {
+    width: 1px;
+    height: 20px;
+    background: rgba(139, 69, 19, 0.1);
+}
+
+.card-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
     min-width: 0;
 }
 
-.news-title {
-    font-size: 0.9375rem;
-    font-weight: 500;
+.card-headline {
+    font-family: var(--font-serif);
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.5;
     color: var(--text-primary);
-    margin: 0 0 var(--space-2) 0;
+    margin: 0;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    line-height: 1.5;
-    letter-spacing: 0.01em;
     transition: color 0.3s ease;
 }
 
-.news-item:hover .news-title {
+.news-card:hover .card-headline {
     color: var(--accent);
 }
 
-.news-meta {
+.card-info {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     color: var(--text-secondary);
-    font-family: var(--font-serif);
 }
 
-.news-source {
+.info-source {
     font-weight: 500;
     opacity: 0.7;
-    position: relative;
 }
 
-.news-source::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    width: 0;
-    height: 1px;
-    background: var(--accent);
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.news-item:hover .news-source::after {
-    width: 100%;
-}
-
-.news-divider {
+.info-dot {
     opacity: 0.3;
 }
 
-.news-time {
-    opacity: 0.5;
+.info-time {
     font-family: var(--font-mono);
+    opacity: 0.5;
 }
 
-.news-arrow {
-    color: var(--text-secondary);
-    opacity: 0;
-    margin-top: 4px;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateX(-10px);
+.card-right {
+    display: flex;
+    align-items: center;
 }
 
-.news-arrow svg {
-    display: block;
-}
-
-.news-item:hover .news-arrow {
-    opacity: 0.8;
-    transform: translateX(0);
+.card-chevron {
+    font-size: 1.25rem;
     color: var(--accent);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.news-card:hover .card-chevron {
+    opacity: 0.5;
+    transform: translateX(0);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .news-wrapper {
+        padding: var(--space-6);
+    }
+
+    .title {
+        font-size: 1.375rem;
+    }
+
+    .card-title {
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .news-wrapper {
+        padding: var(--space-4);
+    }
+
+    .vertical-text {
+        font-size: 0.6875rem;
+        right: var(--space-3);
+    }
+
+    .title {
+        font-size: 1.25rem;
+    }
+
+    .news-header {
+        margin-bottom: var(--space-4);
+    }
+
+    .featured-card {
+        padding: var(--space-4);
+    }
+
+    .card-title {
+        font-size: 0.9375rem;
+    }
+
+    .card-headline {
+        font-size: 0.8125rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .news-wrapper {
+        padding: var(--space-3);
+    }
+
+    .corner-accent {
+        width: 24px;
+        height: 24px;
+    }
+
+    .vertical-text {
+        display: none;
+    }
+
+    .title {
+        font-size: 1.125rem;
+        letter-spacing: 0.1em;
+    }
+
+    .subtitle {
+        font-size: 0.6875rem;
+    }
+
+    .refresh-button {
+        width: 28px;
+        height: 28px;
+    }
+
+    .news-content {
+        gap: var(--space-4);
+    }
+
+    .featured-card {
+        padding: var(--space-3);
+    }
+
+    .card-title {
+        font-size: 0.875rem;
+    }
+
+    .news-card {
+        padding: var(--space-2);
+    }
+
+    .card-headline {
+        font-size: 0.8125rem;
+    }
+
+    .card-chevron {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .news-wrapper {
+        padding: var(--space-2);
+    }
+
+    .title {
+        font-size: 1rem;
+    }
+
+    .title-accent {
+        font-size: 0.75rem;
+    }
+
+    .card-title {
+        font-size: 0.8125rem;
+    }
+
+    .card-headline {
+        font-size: 0.75rem;
+    }
+
+    .card-meta,
+    .card-info {
+        font-size: 0.625rem;
+    }
+
+    .card-divider {
+        display: none;
+    }
 }
 </style>

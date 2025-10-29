@@ -266,14 +266,18 @@
                         <label>Market Type</label>
                         <select v-model="config.marketType" class="market-select">
                             <option value="spot">Spot Trading (Regular buy/sell)</option>
-                            <option value="futures">Futures Trading (Leveraged contracts)</option>
+                            <option value="futures">Futures Trading (Leveraged contracts) ⚡ RECOMMENDED</option>
                             <option value="both">Both (Check both markets)</option>
                         </select>
-                        <div class="form-hint">Select which market you trade on. Futures is for leveraged trading.</div>
+                        <div class="form-hint">
+                            <strong>✅ Futures Mode:</strong> Automatically fetches ALL your futures orders across ALL
+                            trading pairs - no manual symbol selection needed!
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label>Trading Pairs to Track</label>
+                    <!-- Show symbol input only for spot/both markets -->
+                    <div v-if="config.marketType !== 'futures'" class="form-group">
+                        <label>Trading Pairs to Track (Spot Market)</label>
                         <div class="symbols-list">
                             <div v-for="(symbol, index) in symbolsList" :key="index" class="symbol-item">
                                 <input v-model="symbolsList[index]" type="text" placeholder="BTCUSDT"
@@ -288,11 +292,29 @@
                             <button type="button" @click="addSymbol" class="btn-add-symbol">
                                 + Add Trading Pair
                             </button>
-                            <button type="button" @click="autoDiscoverPairs" class="btn-discover" :disabled="isDiscovering">
+                            <button type="button" @click="autoDiscoverPairs" class="btn-discover"
+                                :disabled="isDiscovering">
                                 {{ isDiscovering ? 'Discovering...' : '🔍 Auto-Discover Pairs' }}
                             </button>
                         </div>
-                        <div class="form-hint">Auto-discover will scan for all pairs you've traded</div>
+                        <div class="form-hint">Auto-discover will scan for all pairs you've traded (spot market only)
+                        </div>
+                    </div>
+
+                    <!-- Futures auto-fetch info -->
+                    <div v-else class="futures-info-box">
+                        <div class="info-icon">⚡</div>
+                        <div class="info-content">
+                            <h4>Automatic Futures Discovery</h4>
+                            <p>Futures mode uses Binance <code>/fapi/v1/allOrders</code> API to automatically fetch ALL
+                                your orders across ALL trading pairs. No manual configuration needed!</p>
+                            <ul class="info-benefits">
+                                <li>✅ Automatic multi-symbol tracking</li>
+                                <li>✅ Real-time position data</li>
+                                <li>✅ Last 7 days of trade history (API limit)</li>
+                                <li>✅ Includes realized P&L from Binance</li>
+                            </ul>
+                        </div>
                     </div>
 
                     <div class="form-actions">
@@ -315,7 +337,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import gsap from 'gsap'
-import { fetchMyTrades, fetchAllTrades, testConnection, validateApiKey, validateApiSecret, parseError } from '../utils/binanceApi'
+import { fetchMyTrades, fetchAllTrades, fetchAllFuturesOrders, testConnection, validateApiKey, validateApiSecret, parseError } from '../utils/binanceApi'
 import { useKinesisAlert } from '../composables/useKinesisAlert'
 import { Settings, RefreshCw, BarChart3, Calendar, List } from 'lucide-vue-next'
 
@@ -747,31 +769,86 @@ const startInitialSync = async () => {
         // Fetch ALL trades and discover symbols automatically
         syncMessage.value = 'Discovering trading pairs...'
 
-        // Parse user-specified symbols (optional)
-        const userSymbols = config.value.symbols
-            ? config.value.symbols.split(',').map(s => s.trim()).filter(s => s.length > 0)
-            : []
+        const marketType = config.value.marketType || 'futures'
+        let result
 
-        const result = await fetchAllTrades(
-            config.value.apiKey,
-            config.value.apiSecret,
-            userSymbols,
-            config.value.marketType || 'futures', // Use configured market type
-            (message) => {
-                syncDetail.value = message
+        if (marketType === 'futures') {
+            // Use new /fapi/v1/allOrders API - fetches ALL futures orders automatically!
+            syncMessage.value = 'Fetching ALL futures orders...'
+            syncDetail.value = 'Using Binance Futures API - no manual symbol selection needed!'
 
-                // Update progress bar smoothly
-                if (progressBarRef.value) {
-                    const currentWidth = parseInt(progressBarRef.value.style.width) || 20
-                    if (currentWidth < 70) {
-                        gsap.to(progressBarRef.value, {
-                            width: `${Math.min(currentWidth + 5, 70)}%`,
-                            duration: 0.3
-                        })
+            result = await fetchAllFuturesOrders(
+                config.value.apiKey,
+                config.value.apiSecret,
+                Date.now() - (7 * 24 * 60 * 60 * 1000), // Last 7 days (Binance API limit)
+                Date.now(),
+                1000,
+                (message) => {
+                    syncDetail.value = message
+
+                    // Update progress bar smoothly
+                    if (progressBarRef.value) {
+                        const currentWidth = parseInt(progressBarRef.value.style.width) || 20
+                        if (currentWidth < 70) {
+                            gsap.to(progressBarRef.value, {
+                                width: `${Math.min(currentWidth + 5, 70)}%`,
+                                duration: 0.3
+                            })
+                        }
                     }
                 }
+            )
+
+            // Convert orders to trade format
+            const allTrades = result.orders.map(order => ({
+                symbol: order.symbol,
+                orderId: order.orderId,
+                side: order.side,
+                price: order.avgPrice || order.price,
+                qty: order.executedQty,
+                commission: order.commission || 0,
+                commissionAsset: order.commissionAsset || 'USDT',
+                time: order.updateTime || order.time,
+                isMaker: order.type === 'LIMIT',
+                market: 'futures',
+                // Additional order info
+                positionSide: order.positionSide,
+                realizedPnl: order.realizedPnl || 0,
+                orderType: order.type,
+                status: order.status
+            }))
+
+            result = {
+                trades: allTrades,
+                symbols: result.symbols
             }
-        )
+        } else {
+            // Fallback to old method for spot market
+            const userSymbols = config.value.symbols
+                ? config.value.symbols.split(',').map(s => s.trim()).filter(s => s.length > 0)
+                : []
+
+            result = await fetchAllTrades(
+                config.value.apiKey,
+                config.value.apiSecret,
+                userSymbols,
+                marketType,
+                (message) => {
+                    syncDetail.value = message
+
+                    // Update progress bar smoothly
+                    if (progressBarRef.value) {
+                        const currentWidth = parseInt(progressBarRef.value.style.width) || 20
+                        if (currentWidth < 70) {
+                            gsap.to(progressBarRef.value, {
+                                width: `${Math.min(currentWidth + 5, 70)}%`,
+                                duration: 0.3
+                            })
+                        }
+                    }
+                }
+            )
+        }
 
         const allTrades = result.trades
         const discoveredSymbols = result.symbols

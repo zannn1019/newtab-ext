@@ -2,12 +2,19 @@
     <div class="command-palette" :class="{ 'palette-expanded': isExpanded }">
         <!-- Vertical Japanese Label -->
         <div class="tategaki-label">ファウザン</div>
+        <div class="logo">
+            <LayoutDashboard />
+            <span>
+                ZAN
+            </span>
+        </div>
 
         <div class="palette-content">
             <!-- Search Container with Japanese Styling -->
             <div class="search-container">
                 <input ref="inputRef" v-model="searchQuery" @keydown="handleKeydown" @focus="isExpanded = true"
-                    @blur="handleBlur" @input="handleInput" class="command-input" placeholder="Type a command or search..."
+                    @blur="handleBlur" @input="handleInput" class="command-input"
+                    :placeholder="musicSearchMode ? '🎵 Search Spotify...' : 'Type a command or search...'"
                     spellcheck="false" />
                 <!-- Autocomplete suggestion -->
                 <div v-if="autocompleteSuggestion" class="autocomplete-suggestion">
@@ -40,7 +47,7 @@
                     :class="{ 'selected': selectedIndex === getCommandGlobalIndex(command) }"
                     @click="executeCommand(command)" @mouseenter="selectedIndex = getCommandGlobalIndex(command)">
                     <div class="command-icon">
-                        <component :is="iconComponents[command.icon] || Search" :size="20" :stroke-width="2" />
+                        <component :is="command.icon || Search" :size="20" :stroke-width="2" />
                     </div>
                     <div class="command-info">
                         <div class="command-name">
@@ -54,14 +61,54 @@
             </div>
         </div>
 
+        <!-- Music Search Results -->
+        <div v-if="isExpanded && musicSearchMode && musicStore.connected.value" class="music-results">
+            <div class="music-category">
+                <div class="category-title">
+                    <Music :size="14" :stroke-width="2" style="display: inline; margin-right: 8px;" />
+                    Spotify Tracks
+                    <span v-if="searchingMusic" style="margin-left: 8px; opacity: 0.5;">Searching...</span>
+                </div>
+
+                <div v-if="musicSearchResults.length === 0 && !searchingMusic" class="music-empty">
+                    <div class="empty-icon">🎵</div>
+                    <div class="empty-text">Type to search for music</div>
+                    <div class="empty-hint">Use: 🎵 song name or music:song name</div>
+                </div>
+
+                <div v-for="(track, index) in musicSearchResults" :key="track.id" class="music-item"
+                    :class="{ 'selected': selectedIndex === index }" @click="playMusicTrack(track)"
+                    @mouseenter="selectedIndex = index">
+                    <div class="music-album-art">
+                        <img v-if="track.albumArt" :src="track.albumArt" :alt="track.album" />
+                        <Music v-else :size="24" :stroke-width="2" />
+                    </div>
+                    <div class="music-info">
+                        <div class="music-title">
+                            {{ track.title }}
+                            <span v-if="track.explicit" class="explicit-badge">E</span>
+                        </div>
+                        <div class="music-artist">{{ track.artist }} • {{ track.album }}</div>
+                    </div>
+                    <div class="music-duration">{{ formatDuration(track.duration) }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Music Mode Hint (when not connected) -->
+        <div v-if="isExpanded && musicSearchMode && !musicStore.connected.value" class="music-not-connected">
+            <div class="empty-icon">🎵</div>
+            <div class="empty-text">Spotify Not Connected</div>
+            <div class="empty-hint">Go to Music Player to connect your Spotify account</div>
+        </div>
+
         <!-- History Suggestions Dropdown (Chrome-like) -->
-        <div v-if="isExpanded && filteredCommands.length === 0 && historySuggestions.length > 0" class="history-results">
+        <div v-if="isExpanded && !musicSearchMode && filteredCommands.length === 0 && historySuggestions.length > 0"
+            class="history-results">
             <div class="history-category">
                 <div class="category-title">History & Suggestions</div>
-                <div v-for="(suggestion, index) in historySuggestions" :key="suggestion.id" 
-                    class="history-item"
-                    :class="{ 'selected': selectedHistoryIndex === index }"
-                    @click="selectHistorySuggestion(suggestion)" 
+                <div v-for="(suggestion, index) in historySuggestions" :key="suggestion.id" class="history-item"
+                    :class="{ 'selected': selectedHistoryIndex === index }" @click="selectHistorySuggestion(suggestion)"
                     @mouseenter="selectedHistoryIndex = index">
                     <div class="history-icon">
                         <component :is="suggestion.icon" :size="18" :stroke-width="2" />
@@ -76,7 +123,8 @@
         </div>
 
         <!-- Empty State -->
-        <div v-if="isExpanded && filteredCommands.length === 0 && historySuggestions.length === 0 && searchQuery" class="empty-state">
+        <div v-if="isExpanded && !musicSearchMode && filteredCommands.length === 0 && historySuggestions.length === 0 && searchQuery"
+            class="empty-state">
             <div class="empty-icon">🔍</div>
             <div class="empty-text">No commands found</div>
             <div class="empty-hint">Press Enter to {{ isURL(searchQuery) ? 'visit website' : 'search on Google' }}</div>
@@ -93,28 +141,19 @@ import gsap from 'gsap'
 import {
     Flower2, TrendingUp, Bookmark, BarChart3, FileText,
     Image, RefreshCw, Trash2, Sun, Moon, Search, CheckSquare,
-    Globe, Clock, Star, Newspaper
+    Globe, Clock, Newspaper, HomeIcon, Music,
+    Zap,
+    VectorSquare,
+    LayoutDashboard
 } from 'lucide-vue-next'
 import { useKinesisAlert } from '../composables/useKinesisAlert'
+import * as SpotifyAPI from '../api/spotifyApi'
+import { useMusicStore } from '../composables/useMusicStore'
+import { useSpotifyPlayer } from '../composables/useSpotifyPlayer'
 
 const { confirm, success: showSuccess } = useKinesisAlert()
-
-// Icon mapping
-const iconComponents = {
-    '🧘': Flower2,
-    '📈': TrendingUp,
-    '🔖': Bookmark,
-    '📊': BarChart3,
-    '✅': CheckSquare,
-    '📝': FileText,
-    '�': Newspaper,
-    '�🖼️': Image,
-    '🔄': RefreshCw,
-    '🗑️': Trash2,
-    '☀️': Sun,
-    '🌙': Moon,
-    '🔍': Search
-}
+const musicStore = useMusicStore()
+const { playTrack: sdkPlayTrack, getDeviceId } = useSpotifyPlayer()
 
 const props = defineProps({
     currentView: String
@@ -130,6 +169,12 @@ const urlHistory = ref([])
 const searchHistory = ref([])
 const browserHistory = ref([])
 const historySuggestions = ref([])
+
+// Music search state
+const musicSearchMode = ref(false)
+const musicSearchResults = ref([])
+const searchingMusic = ref(false)
+let musicSearchTimeout = null
 
 const emit = defineEmits(['navigate', 'search'])
 
@@ -161,7 +206,7 @@ const saveUrlToHistory = (url) => {
     // Remove if exists (to move to front)
     urlHistory.value = urlHistory.value.filter(u => u !== url)
     urlHistory.value.unshift(url)
-    
+
     if (urlHistory.value.length > 50) {
         urlHistory.value = urlHistory.value.slice(0, 50)
     }
@@ -173,7 +218,7 @@ const saveSearchToHistory = (search) => {
     // Remove if exists (to move to front)
     searchHistory.value = searchHistory.value.filter(s => s !== search)
     searchHistory.value.unshift(search)
-    
+
     if (searchHistory.value.length > 50) {
         searchHistory.value = searchHistory.value.slice(0, 50)
     }
@@ -208,7 +253,7 @@ const commands = ref([
         name: 'Zen View',
         nameJP: '禅',
         description: 'Minimalist clock and quotes',
-        icon: '🧘',
+        icon: HomeIcon,
         category: 'Navigation',
         key: 'Z',
         keywords: ['zen', 'clock', 'home', 'time'],
@@ -219,7 +264,7 @@ const commands = ref([
         name: 'Market View',
         nameJP: '市場',
         description: 'Cryptocurrency prices',
-        icon: '📈',
+        icon: TrendingUp,
         category: 'Trading',
         key: 'K',
         keywords: ['market', 'crypto', 'finance', 'ticker', 'bitcoin'],
@@ -230,7 +275,7 @@ const commands = ref([
         name: 'Bookmarks',
         nameJP: 'ブックマーク',
         description: 'Quick links and favorites',
-        icon: '🔖',
+        icon: Bookmark,
         category: 'Navigation',
         key: 'B',
         keywords: ['bookmarks', 'links', 'favorites', 'sites'],
@@ -241,7 +286,7 @@ const commands = ref([
         name: 'Trading Journal',
         nameJP: '取引記録',
         description: 'Trading analytics and history',
-        icon: '📊',
+        icon: BarChart3,
         category: 'Trading',
         key: 'J',
         keywords: ['journal', 'trading', 'trades', 'analytics', 'binance', 'pnl'],
@@ -252,7 +297,7 @@ const commands = ref([
         name: 'Task Management',
         nameJP: 'タスク管理',
         description: 'Manage your tasks and todos',
-        icon: '✅',
+        icon: CheckSquare,
         category: 'Productivity',
         key: 'T',
         keywords: ['tasks', 'todo', 'checklist', 'productivity', 'manage'],
@@ -263,18 +308,29 @@ const commands = ref([
         name: 'Fundamentals',
         nameJP: '基本分析',
         description: 'Crypto news, events, and sentiment',
-        icon: '📰',
+        icon: Newspaper,
         category: 'Trading',
         key: 'F',
         keywords: ['fundamentals', 'news', 'events', 'calendar', 'fear', 'greed', 'analysis'],
         action: () => emit('navigate', 'fundamentals')
     },
     {
+        id: 'nav-music',
+        name: 'Music Player',
+        nameJP: '音楽',
+        description: 'Spotify music player',
+        icon: Music,
+        category: 'Entertainment',
+        key: 'P',
+        keywords: ['music', 'spotify', 'player', 'songs', 'playlist', 'audio'],
+        action: () => emit('navigate', 'music')
+    },
+    {
         id: 'nav-notes',
         name: 'Quick Notes',
         nameJP: 'メモ',
         description: 'Toggle notes sidebar',
-        icon: '📝',
+        icon: FileText,
         category: 'Navigation',
         key: 'M',
         keywords: ['notes', 'memo', 'write'],
@@ -285,7 +341,7 @@ const commands = ref([
         name: 'Background Settings',
         nameJP: '背景設定',
         description: 'Customize background appearance',
-        icon: '🖼️',
+        icon: Image,
         category: 'Settings',
         key: '',
         keywords: ['background', 'wallpaper', 'theme', 'customize'],
@@ -297,7 +353,7 @@ const commands = ref([
         name: 'Refresh Data',
         nameJP: '更新',
         description: 'Reload market data',
-        icon: '🔄',
+        icon: RefreshCw,
         category: 'Utilities',
         key: '',
         keywords: ['refresh', 'reload', 'update'],
@@ -308,7 +364,7 @@ const commands = ref([
         name: 'Clear Cache',
         nameJP: 'クリア',
         description: 'Clear local storage',
-        icon: '🗑️',
+        icon: Trash2,
         category: 'Utilities',
         key: '',
         keywords: ['clear', 'cache', 'reset', 'delete'],
@@ -369,11 +425,11 @@ const getCommandGlobalIndex = (command) => {
 // Check if input is a URL
 const isURL = (text) => {
     const query = text.trim()
-    return /^(https?:\/\/)/.test(query) || 
-           /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(query) ||
-           query.includes('.com') || query.includes('.org') || 
-           query.includes('.net') || query.includes('.io') ||
-           query.includes('.co') || query.includes('.dev')
+    return /^(https?:\/\/)/.test(query) ||
+        /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(query) ||
+        query.includes('.com') || query.includes('.org') ||
+        query.includes('.net') || query.includes('.io') ||
+        query.includes('.co') || query.includes('.dev')
 }
 
 // Chrome-like autocomplete with history integration
@@ -399,8 +455,8 @@ const calculateAutocomplete = () => {
     if (browserHistory.value.length > 0) {
         // Sort by visit count and recency
         const sortedHistory = [...browserHistory.value].sort((a, b) => {
-            return (b.visitCount * 10 + b.lastVisitTime / 1000000) - 
-                   (a.visitCount * 10 + a.lastVisitTime / 1000000)
+            return (b.visitCount * 10 + b.lastVisitTime / 1000000) -
+                (a.visitCount * 10 + a.lastVisitTime / 1000000)
         })
 
         for (const item of sortedHistory) {
@@ -408,7 +464,7 @@ const calculateAutocomplete = () => {
                 const url = new URL(item.url)
                 const domain = url.hostname.replace('www.', '')
                 const fullUrl = url.hostname + url.pathname
-                
+
                 // Match against domain or full URL
                 if (domain.startsWith(query) || fullUrl.startsWith(query)) {
                     autocompleteSuggestion.value = domain.substring(query.length)
@@ -427,7 +483,7 @@ const calculateAutocomplete = () => {
     }
 
     // Priority 3: Local URL history
-    const matchingUrl = urlHistory.value.find(url => 
+    const matchingUrl = urlHistory.value.find(url =>
         url.toLowerCase().startsWith(query)
     )
     if (matchingUrl) {
@@ -451,8 +507,8 @@ const calculateAutocomplete = () => {
         'linkedin.com', 'instagram.com', 'amazon.com', 'netflix.com',
         'wikipedia.org', 'gmail.com', 'drive.google.com', 'docs.google.com'
     ]
-    
-    const matchingDomain = commonDomains.find(domain => 
+
+    const matchingDomain = commonDomains.find(domain =>
         domain.startsWith(query)
     )
     if (matchingDomain) {
@@ -477,8 +533,8 @@ const generateHistorySuggestions = () => {
     // Browser history suggestions (top 5)
     if (browserHistory.value.length > 0) {
         const sortedHistory = [...browserHistory.value]
-            .sort((a, b) => (b.visitCount * 10 + b.lastVisitTime / 1000000) - 
-                           (a.visitCount * 10 + a.lastVisitTime / 1000000))
+            .sort((a, b) => (b.visitCount * 10 + b.lastVisitTime / 1000000) -
+                (a.visitCount * 10 + a.lastVisitTime / 1000000))
             .slice(0, 5)
 
         for (const item of sortedHistory) {
@@ -486,8 +542,8 @@ const generateHistorySuggestions = () => {
                 const url = new URL(item.url)
                 const domain = url.hostname.replace('www.', '')
                 const fullUrl = url.hostname + url.pathname
-                
-                if (domain.includes(query) || fullUrl.includes(query) || 
+
+                if (domain.includes(query) || fullUrl.includes(query) ||
                     (item.title && item.title.toLowerCase().includes(query))) {
                     suggestions.push({
                         id: id++,
@@ -555,8 +611,103 @@ const selectHistorySuggestion = (suggestion) => {
     }
 }
 
+// Search for music on Spotify
+const searchMusic = async (query) => {
+    if (!query.trim() || !musicStore.connected.value) {
+        musicSearchResults.value = []
+        return
+    }
+
+    searchingMusic.value = true
+
+    try {
+        const results = await SpotifyAPI.search(query, ['track'], 10)
+
+        if (results && results.tracks && results.tracks.items) {
+            musicSearchResults.value = results.tracks.items.map((track, index) => ({
+                id: `music-${track.id}-${index}`,
+                type: 'music',
+                trackId: track.id,
+                uri: track.uri,
+                title: track.name,
+                artist: track.artists.map(a => a.name).join(', '),
+                album: track.album.name,
+                albumArt: track.album.images[2]?.url || track.album.images[0]?.url || '',
+                duration: track.duration_ms,
+                explicit: track.explicit,
+                popularity: track.popularity
+            }))
+        } else {
+            musicSearchResults.value = []
+        }
+    } catch (error) {
+        console.error('Music search error:', error)
+        musicSearchResults.value = []
+    } finally {
+        searchingMusic.value = false
+    }
+}
+
+// Play a track from search
+const playMusicTrack = async (track) => {
+    try {
+        // Use Spotify API to play track
+        const deviceId = getDeviceId()
+
+        if (deviceId && musicStore.isPremium.value) {
+            await SpotifyAPI.play(deviceId, { uris: [track.uri] })
+        } else {
+            // Fallback: just use the API without device (works for free tier too)
+            await SpotifyAPI.play(null, { uris: [track.uri] })
+        }
+
+        // Close palette
+        searchQuery.value = ''
+        musicSearchMode.value = false
+        musicSearchResults.value = []
+        isExpanded.value = false
+        inputRef.value?.blur()
+
+    } catch (error) {
+        console.error('Failed to play track:', error)
+        await showSuccess('Failed to play track. Make sure Spotify is active.', 'Error', 'エラー')
+    }
+}
+
+// Format duration (ms to MM:SS)
+const formatDuration = (ms) => {
+    const seconds = Math.floor(ms / 1000)
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
 // Handle input change
 const handleInput = () => {
+    // Check if entering music mode with "🎵 " or "music:"
+    if (searchQuery.value.startsWith('🎵 ') || searchQuery.value.toLowerCase().startsWith('music:')) {
+        musicSearchMode.value = true
+        const musicQuery = searchQuery.value.replace(/^(🎵 |music:)/i, '').trim()
+
+        // Debounce music search
+        if (musicSearchTimeout) {
+            clearTimeout(musicSearchTimeout)
+        }
+
+        if (musicQuery.length > 0) {
+            musicSearchTimeout = setTimeout(() => {
+                searchMusic(musicQuery)
+            }, 300)
+        } else {
+            musicSearchResults.value = []
+        }
+
+        return
+    } else {
+        musicSearchMode.value = false
+        musicSearchResults.value = []
+    }
+
     calculateAutocomplete()
     generateHistorySuggestions()
     selectedHistoryIndex.value = 0
@@ -605,6 +756,8 @@ const handleKeydown = (e) => {
         searchQuery.value = ''
         autocompleteSuggestion.value = ''
         historySuggestions.value = []
+        musicSearchMode.value = false
+        musicSearchResults.value = []
         isExpanded.value = false
         inputRef.value?.blur()
         return
@@ -613,7 +766,9 @@ const handleKeydown = (e) => {
     // Arrow Down - navigate down
     if (e.key === 'ArrowDown') {
         e.preventDefault()
-        if (filteredCommands.value.length > 0) {
+        if (musicSearchMode.value && musicSearchResults.value.length > 0) {
+            selectedIndex.value = Math.min(selectedIndex.value + 1, musicSearchResults.value.length - 1)
+        } else if (filteredCommands.value.length > 0) {
             selectedIndex.value = Math.min(selectedIndex.value + 1, filteredCommands.value.length - 1)
         } else if (historySuggestions.value.length > 0) {
             selectedHistoryIndex.value = Math.min(selectedHistoryIndex.value + 1, historySuggestions.value.length - 1)
@@ -624,7 +779,9 @@ const handleKeydown = (e) => {
     // Arrow Up - navigate up
     if (e.key === 'ArrowUp') {
         e.preventDefault()
-        if (filteredCommands.value.length > 0) {
+        if (musicSearchMode.value && musicSearchResults.value.length > 0) {
+            selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
+        } else if (filteredCommands.value.length > 0) {
             selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
         } else if (historySuggestions.value.length > 0) {
             selectedHistoryIndex.value = Math.max(selectedHistoryIndex.value - 1, 0)
@@ -634,24 +791,27 @@ const handleKeydown = (e) => {
 
     // Enter - execute selected command or search
     if (e.key === 'Enter') {
-        if (filteredCommands.value.length > 0) {
+        if (musicSearchMode.value && musicSearchResults.value.length > 0) {
+            // Play selected music track
+            playMusicTrack(musicSearchResults.value[selectedIndex.value])
+        } else if (filteredCommands.value.length > 0) {
             executeCommand(filteredCommands.value[selectedIndex.value])
         } else if (historySuggestions.value.length > 0 && selectedHistoryIndex.value < historySuggestions.value.length) {
             selectHistorySuggestion(historySuggestions.value[selectedHistoryIndex.value])
         } else if (searchQuery.value) {
             const query = searchQuery.value.trim()
-            
+
             // Check if it's a URL or domain
-            const isURLQuery = /^(https?:\/\/)/.test(query) || 
-                         /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(query) ||
-                         query.includes('.com') || query.includes('.org') || 
-                         query.includes('.net') || query.includes('.io') ||
-                         query.includes('.co') || query.includes('.dev')
-            
+            const isURLQuery = /^(https?:\/\/)/.test(query) ||
+                /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(query) ||
+                query.includes('.com') || query.includes('.org') ||
+                query.includes('.net') || query.includes('.io') ||
+                query.includes('.co') || query.includes('.dev')
+
             if (isURLQuery) {
                 // Save to URL history
                 saveUrlToHistory(query)
-                
+
                 // Navigate to the URL
                 let url = query
                 if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -661,7 +821,7 @@ const handleKeydown = (e) => {
             } else {
                 // Save to search history
                 saveSearchToHistory(query)
-                
+
                 // Search on Google
                 window.location.href = `https://www.google.com/search?q=${encodeURIComponent(query)}`
             }
@@ -725,6 +885,22 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.logo {
+    position: absolute;
+    left: var(--space-8);
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--font-serif);
+    font-weight: 900;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    opacity: 0.6;
+}
+
+.logo span {
+    font-size: 1.5rem;
+}
+
 .command-palette {
     position: fixed;
     top: 0;
@@ -1191,19 +1367,155 @@ onUnmounted(() => {
 }
 
 /* Scrollbar */
-.command-results::-webkit-scrollbar {
+.command-results::-webkit-scrollbar,
+.music-results::-webkit-scrollbar {
     width: 6px;
 }
 
-.command-results::-webkit-scrollbar-track {
+.command-results::-webkit-scrollbar-track,
+.music-results::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.command-results::-webkit-scrollbar-thumb {
+.command-results::-webkit-scrollbar-thumb,
+.music-results::-webkit-scrollbar-thumb {
     background: var(--border-color);
     border-radius: 3px;
 }
 
+/* Music Search Results */
+.music-results {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--space-8) var(--space-6) var(--space-8);
+    max-height: 500px;
+    overflow-y: auto;
+    animation: slideDown 0.3s var(--ease);
+    background-color: white;
+}
+
+.music-category {
+    margin-bottom: var(--space-4);
+}
+
+.music-empty {
+    text-align: center;
+    padding: var(--space-8);
+    color: var(--text-muted);
+}
+
+.music-item {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s var(--ease);
+    border: 1px solid transparent;
+}
+
+.music-item:hover,
+.music-item.selected {
+    background: linear-gradient(135deg, rgba(255, 182, 193, 0.08) 0%, rgba(255, 218, 185, 0.08) 100%);
+    border-color: rgba(255, 182, 193, 0.3);
+    transform: translateX(4px);
+}
+
+.music-album-art {
+    width: 56px;
+    height: 56px;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #fef7f0 0%, #fff5eb 100%);
+    flex-shrink: 0;
+}
+
+.music-album-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.music-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.music-title {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.explicit-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    background: rgba(220, 38, 38, 0.9);
+    color: white;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.music-artist {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.music-duration {
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+}
+
+.music-not-connected {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--space-8);
+    text-align: center;
+    animation: fadeIn 0.3s var(--ease);
+}
+
+.music-not-connected .empty-icon {
+    font-size: 3rem;
+    margin-bottom: var(--space-4);
+    opacity: 0.5;
+}
+
+.music-not-connected .empty-text {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-2);
+}
+
+.music-not-connected .empty-hint {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
 /* Responsive */
 @media (max-width: 768px) {
     .palette-content {

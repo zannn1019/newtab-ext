@@ -259,6 +259,170 @@ export const fetchMultipleSymbols = async (
 };
 
 /**
+ * Fetch ALL orders from Binance Futures account (no symbol required!)
+ * Uses /fapi/v1/allOrders which returns orders for ALL trading pairs
+ * 
+ * IMPORTANT: Binance API enforces maximum 7-day time range per request
+ * 
+ * @param {string} apiKey - Binance API key
+ * @param {string} apiSecret - Binance API secret
+ * @param {number} startTime - Optional: Start time in ms (default: 7 days ago, MAX 7 days)
+ * @param {number} endTime - Optional: End time in ms (default: now)
+ * @param {number} limit - Optional: Max orders per symbol (default: 1000)
+ * @param {Function} onProgress - Progress callback (message)
+ * @returns {Promise<Object>} - { orders: Array, symbols: Array }
+ */
+export const fetchAllFuturesOrders = async (
+  apiKey,
+  apiSecret,
+  startTime = null,
+  endTime = null,
+  limit = 1000,
+  onProgress
+) => {
+  try {
+    if (onProgress) onProgress("Fetching futures positions...");
+    console.log("🔍 Fetching ALL futures orders across all symbols...");
+
+    // First, get all open positions to discover active symbols
+    const positionsQuery = await buildSignedQuery({}, apiSecret);
+    const positionsUrl = `${BINANCE_FUTURES_BASE}/fapi/v2/positionRisk?${positionsQuery}`;
+    
+    const options = {
+      method: "GET",
+      headers: {
+        "X-MBX-APIKEY": apiKey,
+      },
+    };
+
+    const positions = await callViaBackground(positionsUrl, options);
+    console.log(`📊 Received ${positions.length} position entries`);
+
+    // Get symbols with non-zero position or entry price
+    const activeSymbols = positions
+      .filter(p => parseFloat(p.positionAmt) !== 0 || parseFloat(p.entryPrice) !== 0)
+      .map(p => p.symbol);
+    
+    console.log(`✅ Found ${activeSymbols.length} active futures symbols:`, activeSymbols.slice(0, 10).join(", "));
+
+    if (onProgress) onProgress(`Found ${activeSymbols.length} active futures symbols`);
+
+    const allOrders = [];
+    const foundSymbols = new Set();
+
+    // Default to last 7 days if no time range specified (Binance API limit)
+    if (!startTime) {
+      startTime = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    }
+    if (!endTime) {
+      endTime = Date.now();
+    }
+
+    // Enforce 7-day maximum range
+    const maxRange = 7 * 24 * 60 * 60 * 1000;
+    if (endTime - startTime > maxRange) {
+      console.warn(`⚠️ Time range exceeds 7 days, adjusting to last 7 days`);
+      startTime = endTime - maxRange;
+    }
+
+    // Fetch orders for each active symbol
+    for (let i = 0; i < activeSymbols.length; i++) {
+      const symbol = activeSymbols[i];
+      
+      if (onProgress) {
+        onProgress(`Fetching orders for ${symbol}... (${i + 1}/${activeSymbols.length})`);
+      }
+
+      try {
+        const params = {
+          symbol: symbol,
+          startTime: startTime,
+          endTime: endTime,
+          limit: limit,
+        };
+
+        const ordersQuery = await buildSignedQuery(params, apiSecret);
+        const ordersUrl = `${BINANCE_FUTURES_BASE}/fapi/v1/allOrders?${ordersQuery}`;
+
+        const orders = await callViaBackground(ordersUrl, options);
+        
+        if (orders && orders.length > 0) {
+          // Filter only FILLED orders for trade journal
+          const filledOrders = orders.filter(o => o.status === 'FILLED');
+          
+          if (filledOrders.length > 0) {
+            allOrders.push(...filledOrders);
+            foundSymbols.add(symbol);
+            console.log(`✅ ${symbol}: ${filledOrders.length} filled orders`);
+          }
+        }
+
+        // Rate limiting - 150ms between requests
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      } catch (error) {
+        console.warn(`⚠️ Failed to fetch orders for ${symbol}:`, error.message);
+      }
+    }
+
+    // Also check common symbols that might not have open positions
+    const commonFuturesPairs = [
+      'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT',
+      'DOGEUSDT', 'MATICUSDT', 'DOTUSDT', 'LINKUSDT', 'AVAXUSDT', 'LTCUSDT'
+    ];
+
+    const additionalSymbols = commonFuturesPairs.filter(s => !foundSymbols.has(s));
+    
+    if (additionalSymbols.length > 0 && onProgress) {
+      onProgress(`Checking ${additionalSymbols.length} common pairs...`);
+    }
+
+    for (const symbol of additionalSymbols) {
+      try {
+        const params = {
+          symbol: symbol,
+          startTime: startTime,
+          endTime: endTime,
+          limit: 100, // Less limit for common pairs check
+        };
+
+        const ordersQuery = await buildSignedQuery(params, apiSecret);
+        const ordersUrl = `${BINANCE_FUTURES_BASE}/fapi/v1/allOrders?${ordersQuery}`;
+
+        const orders = await callViaBackground(ordersUrl, options);
+        
+        if (orders && orders.length > 0) {
+          const filledOrders = orders.filter(o => o.status === 'FILLED');
+          
+          if (filledOrders.length > 0) {
+            allOrders.push(...filledOrders);
+            foundSymbols.add(symbol);
+            console.log(`✅ ${symbol}: ${filledOrders.length} filled orders (common pair)`);
+          }
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      } catch (error) {
+        // Silently skip - expected for symbols without trades
+      }
+    }
+
+    console.log(`📊 Total: ${allOrders.length} orders from ${foundSymbols.size} symbols`);
+    
+    if (onProgress) {
+      onProgress(`Complete! ${allOrders.length} orders from ${foundSymbols.size} symbols`);
+    }
+
+    return {
+      orders: allOrders,
+      symbols: Array.from(foundSymbols).sort(),
+    };
+  } catch (error) {
+    console.error("❌ Failed to fetch futures orders:", error);
+    throw error;
+  }
+};
+
+/**
  * Fetch all trades from account across discovered symbols
  * Since /api/v3/myTrades requires a symbol, we:
  * 1. Check account balances to find assets

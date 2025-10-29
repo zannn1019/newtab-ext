@@ -13,7 +13,8 @@
     "crypto-js": "^4.2.0",
     "gsap": "^3.12.5",
     "lucide-vue-next": "^0.546.0",
-    "vue": "^3.4.0"
+    "vue": "^3.4.0",
+    "wavesurfer.js": "^7.11.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",
