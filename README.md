@@ -1,4 +1,4 @@
-# Zan (禅)
+# Zan (禅) 
 
 > A minimalist, Japanese-inspired new tab page designed for focus, flow, and tranquility.
 
