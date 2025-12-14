@@ -112,4 +112,4 @@ This project is extensively documented. Here are some starting points:
 
 ---
 
-**Built with ❤️ by Ahmad Fauzan**
+**Built with ❤️ by Zan**
