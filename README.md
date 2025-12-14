@@ -1,6 +1,7 @@
 # Zan (禅)
 
 > A minimalist, Japanese-inspired new tab page designed for focus, flow, and tranquility.
+![Zan Web Extension](https://github.com/zannn1019/newtab-ext/blob/main/image.png)
 
 [![Made with Vue.js](https://img.shields.io/badge/Made%20with-Vue.js-4FC08D?style=for-the-badge&logo=vue.js)](https://vuejs.org/)
 [![Powered by Vite](https://img.shields.io/badge/Powered%20by-Vite-646CFF?style=for-the-badge&logo=vite)](https://vitejs.dev/)
